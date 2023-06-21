@@ -67,6 +67,19 @@ impl Default for Cursor {
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum Command {
+    Invalid,
+    MoveDown,
+    MoveUp,
+    MoveLeft,
+    MoveRight,
+    Quit,
+    MoveToBottom,
+    MoveToTop,
+    GoTo, //Intended for 'g'
+}
+
 #[derive(Debug)]
 pub struct Renderer {
     content: Vec<Line>,
@@ -75,6 +88,8 @@ pub struct Renderer {
     scroll_beg: usize,
     scroll_end: usize,
     start_scroll_down: i32,
+    command_buffer: Vec<Command>,
+    term_columns: u16,
 }
 
 impl Renderer {
@@ -86,7 +101,9 @@ impl Renderer {
             changed: true,
             scroll_beg: 0,
             scroll_end: term_columns as usize,
+            term_columns,
             start_scroll_down: term_columns as i32 - 5,
+            command_buffer: Vec::new(),
         }
     }
 
@@ -111,11 +128,7 @@ impl Renderer {
         let _ = Self::flush(); //Here we don't care if we succed or not.
         false
     }
-    /*
-     *
-     *
-     *
-     */
+
     fn move_cur_down(&mut self) {
         if self.cursor.y >= self.start_scroll_down {
             if self.scroll_beg < self.scroll_end {
@@ -139,16 +152,56 @@ impl Renderer {
         }
     }
 
-    pub fn handle_command(&mut self, c: char) -> bool {
+    fn parse_command(&mut self, c: char) -> Option<Command> {
         match c {
             //Ctrl-C
-            '\u{3}' | 'q' => return Self::exit(),
-            'j' => self.move_cur_down(),
-            'k' => self.move_cur_up(),
-            'h' => self.cursor.move_x(-1),
-            'l' => self.cursor.move_x(1),
-            _ => {}
+            '\u{3}' | 'q' => Some(Command::Quit),
+            'j' => Some(Command::MoveDown),
+            'k' => Some(Command::MoveUp),
+            'h' => Some(Command::MoveLeft),
+            'l' => Some(Command::MoveRight),
+            'G' => Some(Command::MoveToBottom),
+            'g' => {
+                if self.command_buffer == vec![Command::GoTo] {
+                    self.command_buffer.clear();
+                    Some(Command::MoveToTop)
+                } else {
+                    self.command_buffer.push(Command::GoTo);
+                    None
+                }
+            }
+            _ => None,
         }
+    }
+
+    fn handle_command(&mut self, c: char) -> bool {
+        if let Some(command) = self.parse_command(c) {
+            match command {
+                Command::Quit => return Self::exit(),
+                Command::MoveDown => self.move_cur_down(),
+                Command::MoveUp => self.move_cur_up(),
+                Command::MoveLeft => self.cursor.move_x(-1),
+                Command::MoveRight => self.cursor.move_x(1),
+                Command::MoveToBottom => {
+                    self.scroll_end = self.content.len() - 1;
+                    self.scroll_beg = self.scroll_end - self.term_columns as usize;
+                    self.cursor.y = self.term_columns as i32 - 1;
+                }
+                Command::MoveToTop => {
+                    self.scroll_beg = 0;
+                    self.scroll_end = self.term_columns as usize;
+                    self.cursor.y = 0;
+                }
+
+                _ => {}
+            }
+        }
+        // '\u{3}' | 'q' => return Self::exit(),
+        // 'j' => self.move_cur_down(),
+        // 'k' => self.move_cur_up(),
+        // 'h' => self.cursor.move_x(-1),
+        // 'l' => self.cursor.move_x(1),
+        // 'G' => return Self::exit(),
         true
     }
 
