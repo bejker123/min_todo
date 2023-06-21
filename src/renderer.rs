@@ -6,8 +6,6 @@ use std::{
     io::{self, Read, Write},
 };
 
-use termion::raw::IntoRawMode;
-
 #[derive(Debug)]
 pub struct Line {
     pub content: String,
@@ -26,10 +24,9 @@ impl Line {
         self.content.len()
     }
 
-    pub fn render(&self) -> Result<(), Box<dyn Error>> {
+    pub fn render(&self) {
         let width = self.width.min(self.len());
-        print!("{}\n\r", &self.content[..width]);
-        Ok(())
+        print!("\n\r{}", &self.content[..width]);
     }
 }
 
@@ -107,10 +104,10 @@ impl Renderer {
         Ok(())
     }
 
-    fn exit() -> ! {
+    fn exit() -> bool {
         Self::clear();
-        Self::flush();
-        std::process::exit(0)
+        let _ = Self::flush(); //Here we don't care if we succed or not.
+        false
     }
     /*
      *
@@ -130,7 +127,7 @@ impl Renderer {
         }
     }
     fn move_cur_up(&mut self) {
-        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0 as usize {
+        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0_usize {
             self.scroll_beg -= 1;
             if self.scroll_end > 0 {
                 self.scroll_end -= 1;
@@ -138,6 +135,19 @@ impl Renderer {
         } else {
             self.cursor.move_y(-1);
         }
+    }
+
+    pub fn handle_command(&mut self, c: char) -> bool {
+        match c {
+            //Ctrl-C
+            '\u{3}' | 'q' => return Self::exit(),
+            'j' => self.move_cur_down(),
+            'k' => self.move_cur_up(),
+            'h' => self.cursor.move_x(-1),
+            'l' => self.cursor.move_x(1),
+            _ => {}
+        }
+        true
     }
 
     pub fn update(&mut self) -> Result<bool, Box<dyn Error>> {
@@ -151,17 +161,10 @@ impl Renderer {
 
         stdin.read_exact(&mut buffer)?;
         // println!("{:?}", buffer);
-        match buffer.get(0) {
-            Some(o) => match o {
-                3 => return Ok(false),
-                106 => self.move_cur_down(),
-                107 => self.move_cur_up(),
-                104 => self.cursor.move_x(-1),
-                108 => self.cursor.move_x(1),
-                113 => return Ok(false),
-                _ => {}
-            },
-            None => {}
+        if let Some(c) = buffer.first() {
+            if !self.handle_command(*c as char) {
+                return Ok(false);
+            }
         }
         // println!("{buffer:?}");
         self.changed = true;
@@ -181,7 +184,7 @@ impl Renderer {
         let end = self.scroll_end.min(self.content.len());
 
         for c in &self.content[start..end] {
-            c.render()?;
+            c.render();
         }
         Self::flush()?;
         self.cursor.render()?;
