@@ -140,26 +140,25 @@ impl Renderer {
         }
     }
 
-    pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn update(&mut self) -> Result<bool, Box<dyn Error>> {
         // let mut buf = Vec::new();
         // std::io::stdin().(&mut buf)?;
         // println!("{:?}", buf);
         let mut buffer = [0];
-        let stdout = io::stdout().into_raw_mode().unwrap();
         let mut stdin = io::stdin();
 
-        stdout.lock().flush().unwrap();
+        // stdout.lock().flush().unwrap();
 
         stdin.read_exact(&mut buffer)?;
         // println!("{:?}", buffer);
         match buffer.get(0) {
             Some(o) => match o {
-                3 => Self::exit(),
+                3 => return Ok(false),
                 106 => self.move_cur_down(),
                 107 => self.move_cur_up(),
                 104 => self.cursor.move_x(-1),
                 108 => self.cursor.move_x(1),
-                113 => Self::exit(),
+                113 => return Ok(false),
                 _ => {}
             },
             None => {}
@@ -167,7 +166,7 @@ impl Renderer {
         // println!("{buffer:?}");
         self.changed = true;
         // std::thread::sleep_ms(100);
-        Ok(())
+        Ok(true)
     }
 
     pub fn render(&mut self) -> Result<(), Box<dyn Error>> {
