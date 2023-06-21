@@ -1,5 +1,4 @@
 const START_SCROLL_UP: i32 = 5;
-const START_SCROLL_DOWN: i32 = 45;
 
 use std::{
     error::Error,
@@ -75,16 +74,19 @@ pub struct Renderer {
     changed: bool,
     scroll_beg: usize,
     scroll_end: usize,
+    start_scroll_down: i32,
 }
 
 impl Renderer {
     pub fn new() -> Self {
+        let term_columns = termion::terminal_size().unwrap().1;
         Self {
             content: Vec::new(),
             cursor: Cursor::default(),
             changed: true,
             scroll_beg: 0,
-            scroll_end: 53, //termion::terminal_size().unwrap().0 as usize,
+            scroll_end: term_columns as usize,
+            start_scroll_down: term_columns as i32 - 5,
         }
     }
 
@@ -115,7 +117,7 @@ impl Renderer {
      *
      */
     fn move_cur_down(&mut self) {
-        if self.cursor.y >= START_SCROLL_DOWN {
+        if self.cursor.y >= self.start_scroll_down {
             if self.scroll_beg < self.scroll_end {
                 self.scroll_beg += 1;
             }
