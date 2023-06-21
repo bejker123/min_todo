@@ -1,3 +1,6 @@
+const START_SCROLL_UP: i32 = 5;
+const START_SCROLL_DOWN: i32 = 45;
+
 use std::{
     error::Error,
     io::{self, Read, Write},
@@ -5,53 +8,32 @@ use std::{
 
 use termion::raw::IntoRawMode;
 
+#[derive(Debug)]
 pub struct Line {
     pub content: String,
-}
-
-pub struct Block {
-    title: String,
-    width: usize,
-    height: usize,
-    lines: Vec<Line>,
+    pub width: usize,
 }
 
 impl Line {
-    pub fn width(&self) -> usize {
+    pub fn new<T: std::fmt::Display>(content: T) -> Self {
+        Self {
+            content: content.to_string(),
+            width: content.to_string().len(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
         self.content.len()
     }
 
-    pub fn render(&self, width: usize) -> Result<(), Box<dyn Error>> {
-        let width = width.min(self.width());
+    pub fn render(&self) -> Result<(), Box<dyn Error>> {
+        let width = self.width.min(self.len());
         print!("{}\n\r", &self.content[..width]);
         Ok(())
     }
 }
 
-impl Block {
-    pub fn render(&self) -> Result<(), Box<dyn Error>> {
-        print!("{}\n\r", self.title);
-
-        let height = self.height.min(self.lines.len());
-        for line in &self.lines[..height] {
-            line.render(self.width)?;
-        }
-        Ok(())
-    }
-
-    pub fn new(title: String, width: usize, height: usize, lines: Vec<Line>) -> Self {
-        Self {
-            title,
-            width,
-            height,
-            lines,
-        }
-    }
-    pub fn add_line(&mut self, line: Line) {
-        self.lines.push(line);
-    }
-}
-
+#[derive(Debug)]
 pub struct Cursor {
     x: i32,
     y: i32,
@@ -89,10 +71,13 @@ impl Default for Cursor {
     }
 }
 
+#[derive(Debug)]
 pub struct Renderer {
-    content: Vec<Block>,
+    content: Vec<Line>,
     cursor: Cursor,
     changed: bool,
+    scroll_beg: usize,
+    scroll_end: usize,
 }
 
 impl Renderer {
@@ -101,11 +86,14 @@ impl Renderer {
             content: Vec::new(),
             cursor: Cursor::default(),
             changed: true,
+            scroll_beg: 0,
+            scroll_end: 53, //termion::terminal_size().unwrap().0 as usize,
         }
     }
 
-    pub fn add_block(&mut self, block: Block) {
-        self.content.push(block);
+    pub fn add_line(&mut self, line: Line) {
+        self.content.push(line);
+        // self.scroll_end += 1;
     }
 
     //Clear and move the cursor to (1,1)
@@ -121,7 +109,35 @@ impl Renderer {
 
     fn exit() -> ! {
         Self::clear();
+        Self::flush();
         std::process::exit(0)
+    }
+    /*
+     *
+     *
+     *
+     */
+    fn move_cur_down(&mut self) {
+        if self.cursor.y >= START_SCROLL_DOWN {
+            if self.scroll_beg < self.scroll_end {
+                self.scroll_beg += 1;
+            }
+            // if self.scroll_end < self.content.len() {
+            self.scroll_end += 1;
+            // }
+        } else {
+            self.cursor.move_y(1);
+        }
+    }
+    fn move_cur_up(&mut self) {
+        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0 as usize {
+            self.scroll_beg -= 1;
+            if self.scroll_end > 0 {
+                self.scroll_end -= 1;
+            }
+        } else {
+            self.cursor.move_y(-1);
+        }
     }
 
     pub fn update(&mut self) -> Result<(), Box<dyn Error>> {
@@ -139,8 +155,8 @@ impl Renderer {
         match buffer.get(0) {
             Some(o) => match o {
                 3 => Self::exit(),
-                106 => self.cursor.move_y(1),
-                107 => self.cursor.move_y(-1),
+                106 => self.move_cur_down(),
+                107 => self.move_cur_up(),
                 104 => self.cursor.move_x(-1),
                 108 => self.cursor.move_x(1),
                 113 => Self::exit(),
@@ -160,7 +176,12 @@ impl Renderer {
         }
         self.changed = false;
         Self::clear();
-        for c in &self.content {
+
+        let start = self.scroll_beg;
+        // .min(self.scroll_end - START_SCROLL_UP as usize);
+        let end = self.scroll_end.min(self.content.len());
+
+        for c in &self.content[start..end] {
             c.render()?;
         }
         Self::flush()?;
