@@ -1,4 +1,5 @@
 // mod file_manager;
+mod command_parser;
 mod renderer;
 
 use std::io::Write;

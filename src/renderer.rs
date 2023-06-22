@@ -1,9 +1,12 @@
 const START_SCROLL_UP: i32 = 5;
 
+use crate::command_parser::Command;
 use std::{
     error::Error,
     io::{self, Read, Write},
 };
+
+use crate::command_parser::CommandParser;
 
 #[derive(Debug)]
 pub struct Line {
@@ -67,19 +70,6 @@ impl Default for Cursor {
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum Command {
-    Invalid,
-    MoveDown,
-    MoveUp,
-    MoveLeft,
-    MoveRight,
-    Quit,
-    MoveToBottom,
-    MoveToTop,
-    GoTo, //Intended for 'g'
-}
-
 #[derive(Debug)]
 pub struct Renderer {
     content: Vec<Line>,
@@ -88,8 +78,8 @@ pub struct Renderer {
     scroll_beg: usize,
     scroll_end: usize,
     start_scroll_down: i32,
-    command_buffer: Vec<Command>,
     term_columns: u16,
+    command_parser: CommandParser,
 }
 
 impl Renderer {
@@ -103,7 +93,7 @@ impl Renderer {
             scroll_end: term_columns as usize,
             term_columns,
             start_scroll_down: term_columns as i32 - 5,
-            command_buffer: Vec::new(),
+            command_parser: CommandParser::new(),
         }
     }
 
@@ -152,30 +142,8 @@ impl Renderer {
         }
     }
 
-    fn parse_command(&mut self, c: char) -> Option<Command> {
-        match c {
-            //Ctrl-C
-            '\u{3}' | 'q' => Some(Command::Quit),
-            'j' => Some(Command::MoveDown),
-            'k' => Some(Command::MoveUp),
-            'h' => Some(Command::MoveLeft),
-            'l' => Some(Command::MoveRight),
-            'G' => Some(Command::MoveToBottom),
-            'g' => {
-                if self.command_buffer == vec![Command::GoTo] {
-                    self.command_buffer.clear();
-                    Some(Command::MoveToTop)
-                } else {
-                    self.command_buffer.push(Command::GoTo);
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
     fn handle_command(&mut self, c: char) -> bool {
-        if let Some(command) = self.parse_command(c) {
+        if let Some(command) = self.command_parser.parse_command(c) {
             match command {
                 Command::Quit => return Self::exit(),
                 Command::MoveDown => self.move_cur_down(),
