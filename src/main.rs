@@ -8,6 +8,7 @@ use renderer::{Line, Renderer};
 use termion::raw::IntoRawMode;
 
 fn main() {
+    print!("{}", termion::screen::ToAlternateScreen);
     let stdout = std::io::stdout().into_raw_mode().unwrap();
     stdout.lock().flush().unwrap();
     let mut renderer = Renderer::new();
@@ -21,4 +22,6 @@ fn main() {
             break;
         }
     }
+    print!("{}", termion::screen::ToMainScreen);
+    stdout.lock().flush().unwrap();
 }

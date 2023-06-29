@@ -1,6 +1,5 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Command {
-    Invalid,
     MoveDown,
     MoveUp,
     MoveLeft,
@@ -9,6 +8,8 @@ pub enum Command {
     MoveToBottom,
     MoveToTop,
     GoTo, //Intended for 'g'
+    EnterInsertMode,
+    Append,
 }
 
 #[derive(Debug)]
@@ -72,12 +73,18 @@ impl CommandParser {
                 self.handle_number_prefix(c);
                 None
             }
+            'i' => Some(Command::EnterInsertMode),
+            'a' => Some(Command::Append),
             _ => None,
         }
     }
 
     pub fn nr_prefix(&self) -> Option<u128> {
         self.nr_prefix
+    }
+
+    pub fn clear_nr_prefix(&mut self) {
+        self.nr_prefix = None;
     }
 }
 

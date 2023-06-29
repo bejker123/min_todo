@@ -33,18 +33,21 @@ impl Line {
 }
 
 #[derive(Debug)]
-pub struct Cursor {
+struct Cursor {
     x: i32,
     y: i32,
 }
 
 impl Cursor {
-    pub fn render(&self) -> Result<(), Box<dyn Error>> {
+    pub fn render(&self, mode: &InputMode) -> Result<(), Box<dyn Error>> {
         print!(
-            "{esc}[{};{}H{esc}[25h",
-            self.y + 1,
-            self.x + 1,
-            esc = 27 as char
+            "{}{}{}",
+            termion::cursor::Show.to_string(),
+            termion::cursor::Goto(self.x as u16 + 1, self.y as u16 + 1),
+            match mode {
+                InputMode::Normal => termion::cursor::SteadyBlock.to_string(),
+                InputMode::Insert => termion::cursor::SteadyBar.to_string(),
+            },
         );
         Renderer::flush()?;
         Ok(())
@@ -71,6 +74,12 @@ impl Default for Cursor {
 }
 
 #[derive(Debug)]
+enum InputMode {
+    Normal,
+    Insert,
+}
+
+#[derive(Debug)]
 pub struct Renderer {
     content: Vec<Line>,
     cursor: Cursor,
@@ -80,6 +89,7 @@ pub struct Renderer {
     start_scroll_down: i32,
     term_columns: u16,
     command_parser: CommandParser,
+    mode: InputMode,
 }
 
 impl Renderer {
@@ -94,6 +104,7 @@ impl Renderer {
             term_columns,
             start_scroll_down: term_columns as i32 - 5,
             command_parser: CommandParser::new(),
+            mode: InputMode::Normal,
         }
     }
 
@@ -104,7 +115,7 @@ impl Renderer {
 
     //Clear and move the cursor to (1,1)
     fn clear() {
-        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+        print!("{}{}", termion::cursor::Goto(1, 1), termion::clear::All);
     }
 
     fn flush() -> Result<(), Box<dyn Error>> {
@@ -142,28 +153,79 @@ impl Renderer {
         }
     }
 
-    fn handle_command(&mut self, c: char) -> bool {
-        if let Some(command) = self.command_parser.parse_command(c) {
-            match command {
-                Command::Quit => return Self::exit(),
-                Command::MoveDown => self.move_cur_down(),
-                Command::MoveUp => self.move_cur_up(),
-                Command::MoveLeft => self.cursor.move_x(-1),
-                Command::MoveRight => self.cursor.move_x(1),
-                Command::MoveToBottom => {
-                    self.scroll_end = self.content.len() - 1;
-                    self.scroll_beg = self.scroll_end - self.term_columns as usize;
-                    self.cursor.y = self.term_columns as i32 - 1;
-                }
-                Command::MoveToTop => {
-                    self.scroll_beg = 0;
-                    self.scroll_end = self.term_columns as usize;
-                    self.cursor.y = 0;
-                }
-
-                _ => {}
-            }
+    fn move_to_line(&mut self, line: usize) {
+        if line >= self.content.len() - 1 {
+            self.move_to_bottom();
+            return;
         }
+
+        self.scroll_beg = line;
+        self.scroll_end = self.scroll_beg + self.term_columns as usize;
+        self.cursor.y = 0; //self.term_columns as i32 / 2;
+    }
+
+    fn move_to_top(&mut self) {
+        self.scroll_beg = 0;
+        self.scroll_end = self.term_columns as usize;
+        self.cursor.y = 0;
+    }
+    fn move_to_bottom(&mut self) {
+        self.scroll_end = self.content.len();
+        self.scroll_beg = self.scroll_end - self.term_columns as usize;
+        self.cursor.y = self.term_columns as i32;
+    }
+
+    //Return false to exit.
+    fn handle_character(&mut self, c: char) -> bool {
+        match self.mode {
+            InputMode::Normal => {
+                if let Some(command) = self.command_parser.parse_command(c) {
+                    match command {
+                        Command::Quit => return Self::exit(),
+                        Command::MoveDown => self.move_cur_down(),
+                        Command::MoveUp => self.move_cur_up(),
+                        Command::MoveLeft => self.cursor.move_x(-1),
+                        Command::MoveRight => self.cursor.move_x(1),
+                        Command::MoveToBottom => {
+                            if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                                self.move_to_line(nr_prefix as usize);
+                                self.command_parser.clear_nr_prefix();
+                            } else {
+                                self.move_to_bottom();
+                            }
+                        }
+                        Command::MoveToTop => {
+                            if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                                self.move_to_line(nr_prefix as usize);
+                                self.command_parser.clear_nr_prefix();
+                            } else {
+                                self.move_to_top();
+                            }
+                        }
+                        Command::EnterInsertMode => {
+                            self.mode = InputMode::Insert;
+                            self.changed = true;
+                        }
+                        Command::Append => {
+                            self.mode = InputMode::Insert;
+                            self.cursor.move_x(1);
+                            self.changed = true;
+                        }
+
+                        _ => {}
+                    }
+                }
+            }
+            InputMode::Insert => match c {
+                '\u{1B}' => {
+                    self.mode = InputMode::Normal;
+                    self.cursor.move_x(-1);
+                    self.changed = true;
+                }
+                _ => {}
+            },
+        }
+
         // '\u{3}' | 'q' => return Self::exit(),
         // 'j' => self.move_cur_down(),
         // 'k' => self.move_cur_up(),
@@ -185,7 +247,7 @@ impl Renderer {
         stdin.read_exact(&mut buffer)?;
         // println!("{:?}", buffer);
         if let Some(c) = buffer.first() {
-            if !self.handle_command(*c as char) {
+            if !self.handle_character(*c as char) {
                 return Ok(false);
             }
         }
@@ -210,7 +272,7 @@ impl Renderer {
             c.render();
         }
         Self::flush()?;
-        self.cursor.render()?;
+        self.cursor.render(&self.mode)?;
         Ok(())
     }
 }
