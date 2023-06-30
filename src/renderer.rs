@@ -1,5 +1,3 @@
-const START_SCROLL_UP: i32 = 5;
-
 use crate::command_parser::Command;
 use std::{
     error::Error,
@@ -34,8 +32,8 @@ impl Line {
 
 #[derive(Debug)]
 struct Cursor {
-    x: i32,
-    y: i32,
+    x: usize,
+    y: usize,
 }
 
 impl Cursor {
@@ -54,15 +52,21 @@ impl Cursor {
     }
 
     pub fn move_x(&mut self, x: i32) {
-        self.x += x;
-        if self.x < 0 {
-            self.x = 0;
+        if x.is_negative() {
+            if self.x > 0 {
+                self.x -= x.wrapping_abs() as usize;
+            }
+        } else {
+            self.x += x.wrapping_abs() as usize;
         }
     }
     pub fn move_y(&mut self, y: i32) {
-        self.y += y;
-        if self.y < 0 {
-            self.y = 0;
+        if y.is_negative() {
+            if self.y > 0 {
+                self.y -= y.wrapping_abs() as usize;
+            }
+        } else {
+            self.y += y.wrapping_abs() as usize;
         }
     }
 }
@@ -86,23 +90,25 @@ pub struct Renderer {
     changed: bool,
     scroll_beg: usize,
     scroll_end: usize,
-    start_scroll_down: i32,
-    term_columns: u16,
+    start_scroll_up: usize,
+    start_scroll_down: usize,
+    term_columns: usize,
     command_parser: CommandParser,
     mode: InputMode,
 }
 
 impl Renderer {
     pub fn new() -> Self {
-        let term_columns = termion::terminal_size().unwrap().1;
+        let term_columns = termion::terminal_size().unwrap().1 as usize;
         Self {
             content: Vec::new(),
             cursor: Cursor::default(),
             changed: true,
             scroll_beg: 0,
-            scroll_end: term_columns as usize,
+            scroll_end: term_columns,
             term_columns,
-            start_scroll_down: term_columns as i32 - 5,
+            start_scroll_up: 5,
+            start_scroll_down: term_columns - 5,
             command_parser: CommandParser::new(),
             mode: InputMode::Normal,
         }
@@ -143,7 +149,7 @@ impl Renderer {
         }
     }
     fn move_cur_up(&mut self) {
-        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0_usize
+        if self.cursor.y == self.start_scroll_up && self.scroll_beg > 0_usize
             || (self.cursor.y == 0 && self.scroll_beg != 0)
         {
             self.scroll_beg -= 1;
@@ -162,19 +168,19 @@ impl Renderer {
         }
 
         self.scroll_beg = line;
-        self.scroll_end = self.scroll_beg + self.term_columns as usize;
+        self.scroll_end = self.scroll_beg + self.term_columns;
         self.cursor.y = 0; //self.term_columns as i32 / 2;
     }
 
     fn move_to_top(&mut self) {
         self.scroll_beg = 0;
-        self.scroll_end = self.term_columns as usize;
+        self.scroll_end = self.term_columns;
         self.cursor.y = 0;
     }
     fn move_to_bottom(&mut self) {
         self.scroll_end = self.content.len();
-        self.scroll_beg = self.scroll_end - self.term_columns as usize;
-        self.cursor.y = self.term_columns as i32;
+        self.scroll_beg = self.scroll_end - self.term_columns;
+        self.cursor.y = self.term_columns;
     }
 
     //Return false to exit.
