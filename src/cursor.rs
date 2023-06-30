@@ -41,14 +41,6 @@ impl Cursor {
             self.y += y.wrapping_abs() as usize;
         }
     }
-
-    pub fn get_x(&self) -> usize {
-        self.x
-    }
-
-    pub fn get_y(&self) -> usize {
-        self.y
-    }
 }
 
 impl Default for Cursor {
