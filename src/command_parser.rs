@@ -15,7 +15,7 @@ pub enum Command {
 #[derive(Debug)]
 pub struct CommandParser {
     command_buffer: Vec<Command>,
-    nr_prefix: Option<u128>,
+    nr_prefix: Option<usize>,
 }
 
 impl CommandParser {
@@ -26,15 +26,14 @@ impl CommandParser {
         }
     }
     fn handle_number_prefix(&mut self, c: char) {
-        let nr = u128::from_str_radix(&c.to_string(), 10).unwrap(); //We are sure this is a number so
-                                                                    //we can unwrap here
+        let nr = c.to_string().parse::<usize>().unwrap(); //We are sure this is a number so
+                                                          //we can unwrap here
 
         if let Some(prev) = self.nr_prefix {
             self.nr_prefix = Some(prev * 10 + nr);
-        } else {
-            if nr != 0 {
-                self.nr_prefix = Some(nr);
-            }
+        } else if nr != 0 {
+            //If the nr begins with 0 we ignore the 0
+            self.nr_prefix = Some(nr);
         }
     }
 
@@ -79,7 +78,7 @@ impl CommandParser {
         }
     }
 
-    pub fn nr_prefix(&self) -> Option<u128> {
+    pub fn nr_prefix(&self) -> Option<usize> {
         self.nr_prefix
     }
 

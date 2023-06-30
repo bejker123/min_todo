@@ -30,6 +30,7 @@ impl Line {
     }
 }
 
+//Represent current cursor position (0,0 based)
 #[derive(Debug)]
 struct Cursor {
     x: usize,
@@ -41,7 +42,10 @@ impl Cursor {
         print!(
             "{}{}{}",
             termion::cursor::Show.to_string(),
-            termion::cursor::Goto(self.x as u16 + 1, self.y as u16 + 1),
+            termion::cursor::Goto(self.x as u16 + 1, self.y as u16 + 1), //We have to add 1, bcs
+            //GoTo() is 1,1 based, but
+            //we represent the coords
+            //as 0,0 based
             match mode {
                 InputMode::Normal => termion::cursor::SteadyBlock.to_string(),
                 InputMode::Insert => termion::cursor::SteadyBar.to_string(),
@@ -149,7 +153,7 @@ impl Renderer {
         }
     }
     fn move_cur_up(&mut self) {
-        if self.cursor.y == self.start_scroll_up && self.scroll_beg > 0_usize
+        if self.cursor.y == self.start_scroll_up && self.scroll_beg > 0
             || (self.cursor.y == 0 && self.scroll_beg != 0)
         {
             self.scroll_beg -= 1;
@@ -196,7 +200,7 @@ impl Renderer {
                         Command::MoveRight => self.cursor.move_x(1),
                         Command::MoveToBottom => {
                             if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                self.move_to_line(nr_prefix as usize);
+                                self.move_to_line(nr_prefix);
                                 self.command_parser.clear_nr_prefix();
                             } else {
                                 self.move_to_bottom();
@@ -204,7 +208,7 @@ impl Renderer {
                         }
                         Command::MoveToTop => {
                             if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                self.move_to_line(nr_prefix as usize);
+                                self.move_to_line(nr_prefix);
                                 self.command_parser.clear_nr_prefix();
                             } else {
                                 self.move_to_top();
