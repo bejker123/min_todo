@@ -141,15 +141,15 @@ impl Renderer {
     }
 
     fn move_cur_down(&mut self) {
-        if self.cursor.y >= self.start_scroll_down {
+        if self.cursor.y >= self.start_scroll_down && self.scroll_end < self.content.len() {
             if self.scroll_beg < self.scroll_end {
                 self.scroll_beg += 1;
             }
-            // if self.scroll_end < self.content.len() {
             self.scroll_end += 1;
-            // }
         } else {
-            self.cursor.move_y(1);
+            if self.get_current_line() < self.content.len() - 1 {
+                self.cursor.move_y(1);
+            }
         }
     }
     fn move_cur_up(&mut self) {
@@ -181,10 +181,15 @@ impl Renderer {
         self.scroll_end = self.term_columns;
         self.cursor.y = 0;
     }
+
     fn move_to_bottom(&mut self) {
         self.scroll_end = self.content.len();
         self.scroll_beg = self.scroll_end - self.term_columns;
-        self.cursor.y = self.term_columns;
+        self.cursor.y = self.term_columns - 1;
+    }
+
+    fn get_current_line(&self) -> usize {
+        self.cursor.y + self.scroll_beg
     }
 
     //Return false to exit.
