@@ -1,6 +1,6 @@
 pub type Buffer = [u8; 4];
 
-use crate::command_parser::Command;
+use crate::{command_parser::Command, cursor::Cursor};
 use std::{
     error::Error,
     io::{self, Read, Write},
@@ -33,59 +33,8 @@ impl Line {
     }
 }
 
-//Represent current cursor position (0,0 based)
 #[derive(Debug)]
-struct Cursor {
-    x: usize,
-    y: usize,
-}
-
-impl Cursor {
-    pub fn render(&self, mode: &InputMode) -> Result<(), Box<dyn Error>> {
-        print!(
-            "{}{}{}",
-            termion::cursor::Show.to_string(),
-            termion::cursor::Goto(self.x as u16 + 1, self.y as u16 + 1), //We have to add 1, bcs
-            //GoTo() is 1,1 based, but
-            //we represent the coords
-            //as 0,0 based
-            match mode {
-                InputMode::Normal => termion::cursor::SteadyBlock.to_string(),
-                InputMode::Insert => termion::cursor::SteadyBar.to_string(),
-            },
-        );
-        Renderer::flush()?;
-        Ok(())
-    }
-
-    pub fn move_x(&mut self, x: i32) {
-        if x.is_negative() {
-            if self.x > 0 {
-                self.x -= x.wrapping_abs() as usize;
-            }
-        } else {
-            self.x += x.wrapping_abs() as usize;
-        }
-    }
-    pub fn move_y(&mut self, y: i32) {
-        if y.is_negative() {
-            if self.y > 0 {
-                self.y -= y.wrapping_abs() as usize;
-            }
-        } else {
-            self.y += y.wrapping_abs() as usize;
-        }
-    }
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self { x: 0, y: 0 }
-    }
-}
-
-#[derive(Debug)]
-enum InputMode {
+pub enum InputMode {
     Normal,
     Insert,
 }
@@ -330,8 +279,8 @@ impl Renderer {
         for c in &self.content[start..end] {
             c.render();
         }
+        self.cursor.render(&self.mode);
         Self::flush()?;
-        self.cursor.render(&self.mode)?;
         Ok(())
     }
 }
