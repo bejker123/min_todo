@@ -143,7 +143,9 @@ impl Renderer {
         }
     }
     fn move_cur_up(&mut self) {
-        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0_usize {
+        if self.cursor.y == START_SCROLL_UP && self.scroll_beg > 0_usize
+            || (self.cursor.y == 0 && self.scroll_beg != 0)
+        {
             self.scroll_beg -= 1;
             if self.scroll_end > 0 {
                 self.scroll_end -= 1;
