@@ -1,3 +1,5 @@
+pub type Buffer = [u8; 4];
+
 use crate::command_parser::Command;
 use std::{
     error::Error,
@@ -25,8 +27,9 @@ impl Line {
     }
 
     pub fn render(&self) {
-        let width = self.width.min(self.len());
-        print!("\n\r{}", &self.content[..width]);
+        // let width = self.width.min(self.len());
+        print!("\n\r{}", self.content);
+        // print!("\n\r{}", &self.content[..width]);
     }
 }
 
@@ -193,10 +196,13 @@ impl Renderer {
     }
 
     //Return false to exit.
-    fn handle_character(&mut self, c: char) -> bool {
+    fn handle_character(&mut self, buffer: Buffer) -> bool {
         match self.mode {
             InputMode::Normal => {
-                if let Some(command) = self.command_parser.parse_command(c) {
+                if let Some(command) = self
+                    .command_parser
+                    .parse_command(*buffer.first().unwrap() as char)
+                {
                     match command {
                         Command::Quit => return Self::exit(),
                         Command::MoveDown => self.move_cur_down(),
@@ -233,22 +239,60 @@ impl Renderer {
                     }
                 }
             }
-            InputMode::Insert => match c {
-                '\u{1B}' => {
+            InputMode::Insert => match buffer {
+                //Esc
+                [27, 0, 0, 0] => {
                     self.mode = InputMode::Normal;
                     self.cursor.move_x(-1);
                     self.changed = true;
                 }
-                _ => {}
+                //Backspace
+                [127, 0, 0, 0] => {
+                    if self.cursor.x != 0 {
+                        let curr = self.get_current_line();
+                        if let Some(curr) = self.content.get_mut(curr) {
+                            if self.cursor.x - 1 < curr.len() {
+                                curr.content.remove(self.cursor.x - 1);
+                                self.cursor.move_x(-1);
+                            }
+                        }
+                    }
+                }
+                //Delete
+                [27, 91, 51, 126] => {
+                    let curr = self.get_current_line();
+                    if let Some(curr) = self.content.get_mut(curr) {
+                        if self.cursor.x < curr.len() {
+                            curr.content.remove(self.cursor.x);
+                        }
+                    }
+                }
+                //Arrow Up
+                [27, 91, 65, 0] => {
+                    self.move_cur_up();
+                }
+                //Arrow Down
+                [27, 91, 66, 0] => {
+                    self.move_cur_down();
+                }
+                //Arrow Left
+                [27, 91, 68, 0] => {
+                    self.cursor.move_x(-1);
+                }
+                //Arrow Left
+                [27, 91, 67, 0] => {
+                    self.cursor.move_x(1);
+                }
+                _ => {
+                    let curr = self.get_current_line();
+                    if let Some(curr) = self.content.get_mut(curr) {
+                        curr.content
+                            .insert(self.cursor.x, *buffer.first().unwrap() as char);
+                        self.cursor.move_x(1);
+                    }
+                }
             },
         }
-
-        // '\u{3}' | 'q' => return Self::exit(),
-        // 'j' => self.move_cur_down(),
-        // 'k' => self.move_cur_up(),
-        // 'h' => self.cursor.move_x(-1),
-        // 'l' => self.cursor.move_x(1),
-        // 'G' => return Self::exit(),
         true
     }
 
@@ -256,17 +300,15 @@ impl Renderer {
         // let mut buf = Vec::new();
         // std::io::stdin().(&mut buf)?;
         // println!("{:?}", buf);
-        let mut buffer = [0];
+        let mut buffer = [0, 0, 0, 0];
         let mut stdin = io::stdin();
 
         // stdout.lock().flush().unwrap();
 
-        stdin.read_exact(&mut buffer)?;
-        // println!("{:?}", buffer);
-        if let Some(c) = buffer.first() {
-            if !self.handle_character(*c as char) {
-                return Ok(false);
-            }
+        stdin.read(&mut buffer)?;
+        // panic!("{:?}", buffer);
+        if !self.handle_character(buffer) {
+            return Ok(false);
         }
         // println!("{buffer:?}");
         self.changed = true;
