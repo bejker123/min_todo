@@ -64,7 +64,7 @@ impl CommandParser {
                     //Backspace
                     '\u{7F}' => Some(InsertModeCommand::Backspace),
                     c => {
-                        if c.is_ascii_graphic() {
+                        if c.is_ascii_graphic() || c == ' ' {
                             Some(InsertModeCommand::Insert(c))
                         } else {
                             None
