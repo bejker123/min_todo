@@ -1,12 +1,13 @@
 pub type Buffer = [u8; 4];
 
-use crate::{command_parser::Command, cursor::Cursor};
+use crate::{
+    command_parser::{CommandParser, InsertModeCommand, NormalModeCommand},
+    cursor::Cursor,
+};
 use std::{
     error::Error,
     io::{self, Read, Write},
 };
-
-use crate::command_parser::CommandParser;
 
 #[derive(Debug)]
 pub struct Line {
@@ -153,12 +154,12 @@ impl Renderer {
                     .parse_command(*buffer.first().unwrap() as char)
                 {
                     match command {
-                        Command::Quit => return Self::exit(),
-                        Command::MoveDown => self.move_cur_down(),
-                        Command::MoveUp => self.move_cur_up(),
-                        Command::MoveLeft => self.cursor.move_x(-1),
-                        Command::MoveRight => self.cursor.move_x(1),
-                        Command::MoveToBottom => {
+                        NormalModeCommand::Quit => return Self::exit(),
+                        NormalModeCommand::MoveDown => self.move_cur_down(),
+                        NormalModeCommand::MoveUp => self.move_cur_up(),
+                        NormalModeCommand::MoveLeft => self.cursor.move_x(-1),
+                        NormalModeCommand::MoveRight => self.cursor.move_x(1),
+                        NormalModeCommand::MoveToBottom => {
                             if let Some(nr_prefix) = self.command_parser.nr_prefix() {
                                 self.move_to_line(nr_prefix);
                                 self.command_parser.clear_nr_prefix();
@@ -166,7 +167,7 @@ impl Renderer {
                                 self.move_to_bottom();
                             }
                         }
-                        Command::MoveToTop => {
+                        NormalModeCommand::MoveToTop => {
                             if let Some(nr_prefix) = self.command_parser.nr_prefix() {
                                 self.move_to_line(nr_prefix);
                                 self.command_parser.clear_nr_prefix();
@@ -174,11 +175,11 @@ impl Renderer {
                                 self.move_to_top();
                             }
                         }
-                        Command::EnterInsertMode => {
+                        NormalModeCommand::EnterInsertMode => {
                             self.mode = InputMode::Insert;
                             self.changed = true;
                         }
-                        Command::Append => {
+                        NormalModeCommand::Append => {
                             self.mode = InputMode::Insert;
                             self.cursor.move_x(1);
                             self.changed = true;
@@ -188,59 +189,59 @@ impl Renderer {
                     }
                 }
             }
-            InputMode::Insert => match buffer {
-                //Esc
-                [27, 0, 0, 0] => {
-                    self.mode = InputMode::Normal;
-                    self.cursor.move_x(-1);
-                    self.changed = true;
-                }
-                //Backspace
-                [127, 0, 0, 0] => {
-                    if self.cursor.x != 0 {
-                        let curr = self.get_current_line();
-                        if let Some(curr) = self.content.get_mut(curr) {
-                            if self.cursor.x - 1 < curr.len() {
-                                curr.content.remove(self.cursor.x - 1);
-                                self.cursor.move_x(-1);
+            InputMode::Insert => {
+                if let Some(command) = self.command_parser.parse_insert_mode_command(buffer) {
+                    match command {
+                        InsertModeCommand::EnterNormalMode => {
+                            self.mode = InputMode::Normal;
+                            self.cursor.move_x(-1);
+                            self.changed = true;
+                        }
+                        InsertModeCommand::Backspace => {
+                            if self.cursor.x != 0 {
+                                let curr = self.get_current_line();
+                                if let Some(curr) = self.content.get_mut(curr) {
+                                    if self.cursor.x - 1 < curr.len() {
+                                        curr.content.remove(self.cursor.x - 1);
+                                        self.cursor.move_x(-1);
+                                    }
+                                }
+                            }
+                        }
+                        InsertModeCommand::Delete => {
+                            let curr = self.get_current_line();
+                            if let Some(curr) = self.content.get_mut(curr) {
+                                if self.cursor.x < curr.len() {
+                                    curr.content.remove(self.cursor.x);
+                                }
+                            }
+                        }
+                        //Arrow Up
+                        InsertModeCommand::MoveUp => {
+                            self.move_cur_up();
+                        }
+                        //Arrow Down
+                        InsertModeCommand::MoveDown => {
+                            self.move_cur_down();
+                        }
+                        //Arrow Left
+                        InsertModeCommand::MoveLeft => {
+                            self.cursor.move_x(-1);
+                        }
+                        //Arrow Right
+                        InsertModeCommand::MoveRight => {
+                            self.cursor.move_x(1);
+                        }
+                        InsertModeCommand::Insert(c) => {
+                            let curr = self.get_current_line();
+                            if let Some(curr) = self.content.get_mut(curr) {
+                                curr.content.insert(self.cursor.x, c);
+                                self.cursor.move_x(1);
                             }
                         }
                     }
                 }
-                //Delete
-                [27, 91, 51, 126] => {
-                    let curr = self.get_current_line();
-                    if let Some(curr) = self.content.get_mut(curr) {
-                        if self.cursor.x < curr.len() {
-                            curr.content.remove(self.cursor.x);
-                        }
-                    }
-                }
-                //Arrow Up
-                [27, 91, 65, 0] => {
-                    self.move_cur_up();
-                }
-                //Arrow Down
-                [27, 91, 66, 0] => {
-                    self.move_cur_down();
-                }
-                //Arrow Left
-                [27, 91, 68, 0] => {
-                    self.cursor.move_x(-1);
-                }
-                //Arrow Left
-                [27, 91, 67, 0] => {
-                    self.cursor.move_x(1);
-                }
-                _ => {
-                    let curr = self.get_current_line();
-                    if let Some(curr) = self.content.get_mut(curr) {
-                        curr.content
-                            .insert(self.cursor.x, *buffer.first().unwrap() as char);
-                        self.cursor.move_x(1);
-                    }
-                }
-            },
+            }
         }
         true
     }
