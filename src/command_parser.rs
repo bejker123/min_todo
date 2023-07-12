@@ -1,4 +1,4 @@
-use crate::{char_parser::Character, renderer::Buffer};
+use crate::char_parser::Character;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NormalModeCommand {
@@ -87,10 +87,10 @@ impl CommandParser {
             }
             //Ctrl-C
             Character::Display('\u{3}') | Character::Display('q') => Some(NormalModeCommand::Quit),
-            Character::Display('j') => Some(NormalModeCommand::MoveDown),
-            Character::Display('k') => Some(NormalModeCommand::MoveUp),
-            Character::Display('h') => Some(NormalModeCommand::MoveLeft),
-            Character::Display('l') => Some(NormalModeCommand::MoveRight),
+            Character::ArrowDown | Character::Display('j') => Some(NormalModeCommand::MoveDown),
+            Character::ArrowUp | Character::Display('k') => Some(NormalModeCommand::MoveUp),
+            Character::ArrowLeft | Character::Display('h') => Some(NormalModeCommand::MoveLeft),
+            Character::ArrowRight | Character::Display('l') => Some(NormalModeCommand::MoveRight),
             Character::Display('G') => Some(NormalModeCommand::MoveToBottom),
             Character::Display('g') => {
                 if self.command_buffer == vec![NormalModeCommand::GoTo] {
