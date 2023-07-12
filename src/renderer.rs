@@ -1,6 +1,7 @@
 pub type Buffer = [u8; 4];
 
 use crate::{
+    char_parser,
     command_parser::{CommandParser, InsertModeCommand, NormalModeCommand},
     cursor::Cursor,
 };
@@ -147,103 +148,104 @@ impl Renderer {
 
     //Return false to exit.
     fn handle_character(&mut self, buffer: Buffer) -> bool {
-        match self.mode {
-            InputMode::Normal => {
-                if let Some(command) = self
-                    .command_parser
-                    .parse_command(*buffer.first().unwrap() as char)
-                {
-                    match command {
-                        NormalModeCommand::Quit => return Self::exit(),
-                        NormalModeCommand::MoveDown => self.move_cur_down(),
-                        NormalModeCommand::MoveUp => self.move_cur_up(),
-                        NormalModeCommand::MoveLeft => self.cursor.move_x(-1),
-                        NormalModeCommand::MoveRight => self.cursor.move_x(1),
-                        NormalModeCommand::MoveToBottom => {
-                            if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                self.move_to_line(nr_prefix);
-                                self.command_parser.clear_nr_prefix();
-                            } else {
-                                self.move_to_bottom();
+        if let Some(ch) = char_parser::parse_char(buffer) {
+            match self.mode {
+                InputMode::Normal => {
+                    if let Some(command) = self.command_parser.parse_command(ch) {
+                        match command {
+                            NormalModeCommand::Quit => return Self::exit(),
+                            NormalModeCommand::MoveDown => self.move_cur_down(),
+                            NormalModeCommand::MoveUp => self.move_cur_up(),
+                            NormalModeCommand::MoveLeft => self.cursor.move_x(-1),
+                            NormalModeCommand::MoveRight => self.cursor.move_x(1),
+                            NormalModeCommand::MoveToBottom => {
+                                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                                    self.move_to_line(nr_prefix);
+                                    self.command_parser.clear_nr_prefix();
+                                } else {
+                                    self.move_to_bottom();
+                                }
                             }
-                        }
-                        NormalModeCommand::MoveToTop => {
-                            if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                self.move_to_line(nr_prefix);
-                                self.command_parser.clear_nr_prefix();
-                            } else {
-                                self.move_to_top();
+                            NormalModeCommand::MoveToTop => {
+                                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                                    self.move_to_line(nr_prefix);
+                                    self.command_parser.clear_nr_prefix();
+                                } else {
+                                    self.move_to_top();
+                                }
                             }
-                        }
-                        NormalModeCommand::EnterInsertMode => {
-                            self.mode = InputMode::Insert;
-                            self.changed = true;
-                        }
-                        NormalModeCommand::Append => {
-                            self.mode = InputMode::Insert;
-                            self.cursor.move_x(1);
-                            self.changed = true;
-                        }
+                            NormalModeCommand::EnterInsertMode => {
+                                self.mode = InputMode::Insert;
+                                self.changed = true;
+                            }
+                            NormalModeCommand::Append => {
+                                self.mode = InputMode::Insert;
+                                self.cursor.move_x(1);
+                                self.changed = true;
+                            }
 
-                        _ => {}
+                            _ => {}
+                        }
                     }
                 }
-            }
-            InputMode::Insert => {
-                if let Some(command) = self.command_parser.parse_insert_mode_command(buffer) {
-                    match command {
-                        InsertModeCommand::EnterNormalMode => {
-                            self.mode = InputMode::Normal;
-                            self.cursor.move_x(-1);
-                            self.changed = true;
-                        }
-                        InsertModeCommand::Backspace => {
-                            if self.cursor.x != 0 {
-                                let curr = self.get_current_line();
-                                if let Some(curr) = self.content.get_mut(curr) {
-                                    if self.cursor.x - 1 < curr.len() {
-                                        curr.content.remove(self.cursor.x - 1);
-                                        self.cursor.move_x(-1);
+                InputMode::Insert => {
+                    if let Some(command) = self.command_parser.parse_insert_mode_command(ch) {
+                        match command {
+                            InsertModeCommand::EnterNormalMode => {
+                                self.mode = InputMode::Normal;
+                                self.cursor.move_x(-1);
+                                self.changed = true;
+                            }
+                            InsertModeCommand::Backspace => {
+                                if self.cursor.x != 0 {
+                                    let curr = self.get_current_line();
+                                    if let Some(curr) = self.content.get_mut(curr) {
+                                        if self.cursor.x - 1 < curr.len() {
+                                            curr.content.remove(self.cursor.x - 1);
+                                            self.cursor.move_x(-1);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        InsertModeCommand::Delete => {
-                            let curr = self.get_current_line();
-                            if let Some(curr) = self.content.get_mut(curr) {
-                                if self.cursor.x < curr.len() {
-                                    curr.content.remove(self.cursor.x);
+                            InsertModeCommand::Delete => {
+                                let curr = self.get_current_line();
+                                if let Some(curr) = self.content.get_mut(curr) {
+                                    if self.cursor.x < curr.len() {
+                                        curr.content.remove(self.cursor.x);
+                                    }
                                 }
                             }
-                        }
-                        //Arrow Up
-                        InsertModeCommand::MoveUp => {
-                            self.move_cur_up();
-                        }
-                        //Arrow Down
-                        InsertModeCommand::MoveDown => {
-                            self.move_cur_down();
-                        }
-                        //Arrow Left
-                        InsertModeCommand::MoveLeft => {
-                            self.cursor.move_x(-1);
-                        }
-                        //Arrow Right
-                        InsertModeCommand::MoveRight => {
-                            self.cursor.move_x(1);
-                        }
-                        InsertModeCommand::Insert(c) => {
-                            let curr = self.get_current_line();
-                            if let Some(curr) = self.content.get_mut(curr) {
-                                curr.content.insert(self.cursor.x, c);
+                            //Arrow Up
+                            InsertModeCommand::MoveUp => {
+                                self.move_cur_up();
+                            }
+                            //Arrow Down
+                            InsertModeCommand::MoveDown => {
+                                self.move_cur_down();
+                            }
+                            //Arrow Left
+                            InsertModeCommand::MoveLeft => {
+                                self.cursor.move_x(-1);
+                            }
+                            //Arrow Right
+                            InsertModeCommand::MoveRight => {
                                 self.cursor.move_x(1);
+                            }
+                            InsertModeCommand::Insert(c) => {
+                                let curr = self.get_current_line();
+                                if let Some(curr) = self.content.get_mut(curr) {
+                                    curr.content.insert(self.cursor.x, c);
+                                    self.cursor.move_x(1);
+                                }
                             }
                         }
                     }
                 }
             }
+            true
+        } else {
+            true
         }
-        true
     }
 
     pub fn update(&mut self) -> Result<bool, Box<dyn Error>> {

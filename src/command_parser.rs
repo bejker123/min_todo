@@ -1,4 +1,4 @@
-use crate::renderer::Buffer;
+use crate::{char_parser::Character, renderer::Buffer};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NormalModeCommand {
@@ -51,66 +51,48 @@ impl CommandParser {
         }
     }
 
-    pub fn parse_insert_mode_command(&self, buffer: Buffer) -> Option<InsertModeCommand> {
-        let zeros = buffer.iter().filter(|x| **x == 0).count();
-
-        let values = buffer.len() - zeros;
-
-        match values {
-            1 => {
-                match *buffer.first().unwrap() as char {
-                    //Esc
-                    '\u{1B}' => Some(InsertModeCommand::EnterNormalMode),
-                    //Backspace
-                    '\u{7F}' => Some(InsertModeCommand::Backspace),
-                    c => {
-                        if c.is_ascii_graphic() || c == ' ' {
-                            Some(InsertModeCommand::Insert(c))
-                        } else {
-                            None
-                        }
-                    }
+    pub fn parse_insert_mode_command(&self, c: Character) -> Option<InsertModeCommand> {
+        match c {
+            //Esc
+            Character::Esc => Some(InsertModeCommand::EnterNormalMode),
+            //Backspace
+            Character::Backspace => Some(InsertModeCommand::Backspace),
+            Character::Display(c) => {
+                if c.is_ascii_graphic() || c == ' ' {
+                    Some(InsertModeCommand::Insert(c))
+                } else {
+                    None
                 }
             }
-            3 => {
-                match buffer[..3] {
-                    //Arrow Up
-                    [27, 91, 65] => Some(InsertModeCommand::MoveUp),
-                    //Arrow Down
-                    [27, 91, 66] => Some(InsertModeCommand::MoveDown),
-                    //Arrow Left
-                    [27, 91, 68] => Some(InsertModeCommand::MoveLeft),
-                    //Arrow Right
-                    [27, 91, 67] => Some(InsertModeCommand::MoveRight),
-                    _ => None,
-                }
-            }
-            4 => {
-                match buffer {
-                    //Delete
-                    [27, 91, 51, 126] => Some(InsertModeCommand::Delete),
-                    _ => None,
-                }
-            }
+            //Arrow Up
+            Character::ArrowUp => Some(InsertModeCommand::MoveUp),
+            //Arrow Down
+            Character::ArrowDown => Some(InsertModeCommand::MoveDown),
+            //Arrow Left
+            Character::ArrowLeft => Some(InsertModeCommand::MoveLeft),
+            //Arrow Right
+            Character::ArrowRight => Some(InsertModeCommand::MoveRight),
+            //Delete
+            Character::Delete => Some(InsertModeCommand::Delete),
             _ => None,
         }
     }
 
-    pub fn parse_command(&mut self, c: char) -> Option<NormalModeCommand> {
+    pub fn parse_command(&mut self, c: Character) -> Option<NormalModeCommand> {
         match c {
             //Esc
-            '\u{1B}' => {
+            Character::Esc => {
                 self.command_buffer.clear();
                 None
             }
             //Ctrl-C
-            '\u{3}' | 'q' => Some(NormalModeCommand::Quit),
-            'j' => Some(NormalModeCommand::MoveDown),
-            'k' => Some(NormalModeCommand::MoveUp),
-            'h' => Some(NormalModeCommand::MoveLeft),
-            'l' => Some(NormalModeCommand::MoveRight),
-            'G' => Some(NormalModeCommand::MoveToBottom),
-            'g' => {
+            Character::Display('\u{3}') | Character::Display('q') => Some(NormalModeCommand::Quit),
+            Character::Display('j') => Some(NormalModeCommand::MoveDown),
+            Character::Display('k') => Some(NormalModeCommand::MoveUp),
+            Character::Display('h') => Some(NormalModeCommand::MoveLeft),
+            Character::Display('l') => Some(NormalModeCommand::MoveRight),
+            Character::Display('G') => Some(NormalModeCommand::MoveToBottom),
+            Character::Display('g') => {
                 if self.command_buffer == vec![NormalModeCommand::GoTo] {
                     self.command_buffer.clear();
                     Some(NormalModeCommand::MoveToTop)
@@ -127,12 +109,14 @@ impl CommandParser {
                     None
                 }
             }
-            '0'..='9' => {
-                self.handle_number_prefix(c);
+            Character::Display('0'..='9') => {
+                if let Character::Display(c) = c {
+                    self.handle_number_prefix(c);
+                }
                 None
             }
-            'i' => Some(NormalModeCommand::EnterInsertMode),
-            'a' => Some(NormalModeCommand::Append),
+            Character::Display('i') => Some(NormalModeCommand::EnterInsertMode),
+            Character::Display('a') => Some(NormalModeCommand::Append),
             _ => None,
         }
     }
@@ -146,9 +130,10 @@ impl CommandParser {
     }
 }
 
+#[cfg(test)]
 mod test {
 
-    #[cfg(test)]
+    use crate::char_parser::Character;
     use crate::command_parser::{CommandParser, NormalModeCommand};
 
     macro_rules! parse_command_test_wrapper {
@@ -162,15 +147,39 @@ mod test {
     }
 
     //We want to keep theese as separate tests TK
-    parse_command_test_wrapper!(parse_command_q, 'q', Some(NormalModeCommand::Quit));
-    parse_command_test_wrapper!(parse_command_ctrl_c, '\u{3}', Some(NormalModeCommand::Quit));
-    parse_command_test_wrapper!(parse_command_j, 'j', Some(NormalModeCommand::MoveDown));
-    parse_command_test_wrapper!(parse_command_k, 'k', Some(NormalModeCommand::MoveUp));
-    parse_command_test_wrapper!(parse_command_h, 'h', Some(NormalModeCommand::MoveLeft));
-    parse_command_test_wrapper!(parse_command_l, 'l', Some(NormalModeCommand::MoveRight));
+    parse_command_test_wrapper!(
+        parse_command_q,
+        Character::Display('q'),
+        Some(NormalModeCommand::Quit)
+    );
+    parse_command_test_wrapper!(
+        parse_command_ctrl_c,
+        Character::Display('\u{3}'),
+        Some(NormalModeCommand::Quit)
+    );
+    parse_command_test_wrapper!(
+        parse_command_j,
+        Character::Display('j'),
+        Some(NormalModeCommand::MoveDown)
+    );
+    parse_command_test_wrapper!(
+        parse_command_k,
+        Character::Display('k'),
+        Some(NormalModeCommand::MoveUp)
+    );
+    parse_command_test_wrapper!(
+        parse_command_h,
+        Character::Display('h'),
+        Some(NormalModeCommand::MoveLeft)
+    );
+    parse_command_test_wrapper!(
+        parse_command_l,
+        Character::Display('l'),
+        Some(NormalModeCommand::MoveRight)
+    );
     parse_command_test_wrapper!(
         parse_command_capital_g,
-        'G',
+        Character::Display('G'),
         Some(NormalModeCommand::MoveToBottom)
     );
 
@@ -178,15 +187,18 @@ mod test {
     fn parse_command_nr() {
         let mut cp = CommandParser::new();
         for i in '0'..='9' {
-            assert_eq!(cp.parse_command(i), None);
+            assert_eq!(cp.parse_command(Character::Display(i)), None);
         }
     }
 
     #[test]
     fn parse_command_gg() {
         let mut cp = CommandParser::new();
-        assert_eq!(cp.parse_command('g'), None);
-        assert_eq!(cp.parse_command('g'), Some(NormalModeCommand::MoveToTop));
+        assert_eq!(cp.parse_command(Character::Display('g')), None);
+        assert_eq!(
+            cp.parse_command(Character::Display('g')),
+            Some(NormalModeCommand::MoveToTop)
+        );
         assert!(cp.command_buffer.is_empty());
         assert_eq!(cp.nr_prefix, None);
     }

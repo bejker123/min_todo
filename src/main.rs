@@ -1,4 +1,5 @@
 // mod file_manager;
+mod char_parser;
 mod command_parser;
 mod cursor;
 mod renderer;
