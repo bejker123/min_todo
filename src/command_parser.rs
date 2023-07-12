@@ -134,7 +134,53 @@ impl CommandParser {
 mod test {
 
     use crate::char_parser::Character;
-    use crate::command_parser::{CommandParser, NormalModeCommand};
+    use crate::command_parser::{CommandParser, InsertModeCommand, NormalModeCommand};
+
+    macro_rules! parse_insert_command_test_wrapper {
+        ($name: ident,$c: expr, $out: expr) => {
+            #[test]
+            fn $name() {
+                let cp = CommandParser::new();
+                assert_eq!(cp.parse_insert_mode_command($c), $out);
+            }
+        };
+    }
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_esc,
+        Character::Esc,
+        Some(InsertModeCommand::EnterNormalMode)
+    );
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_delete,
+        Character::Delete,
+        Some(InsertModeCommand::Delete)
+    );
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_arr_down,
+        Character::ArrowDown,
+        Some(InsertModeCommand::MoveDown)
+    );
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_arr_up,
+        Character::ArrowUp,
+        Some(InsertModeCommand::MoveUp)
+    );
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_arr_left,
+        Character::ArrowLeft,
+        Some(InsertModeCommand::MoveLeft)
+    );
+
+    parse_insert_command_test_wrapper!(
+        parse_insert_command_arr_right,
+        Character::ArrowRight,
+        Some(InsertModeCommand::MoveRight)
+    );
 
     macro_rules! parse_command_test_wrapper {
         ($name: ident,$c: expr, $out: expr) => {
