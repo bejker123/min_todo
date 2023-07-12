@@ -53,6 +53,7 @@ pub struct Renderer {
     term_columns: usize,
     command_parser: CommandParser,
     mode: InputMode,
+    bottom_line: Option<Line>,
 }
 
 impl Renderer {
@@ -69,6 +70,7 @@ impl Renderer {
             start_scroll_down: term_columns - 5,
             command_parser: CommandParser::new(),
             mode: InputMode::Normal,
+            bottom_line: None,
         }
     }
 
@@ -119,13 +121,14 @@ impl Renderer {
         }
     }
 
+    //TODO: make this more like vim
     fn move_to_line(&mut self, line: usize) {
         if line >= self.content.len() - 1 {
             self.move_to_bottom();
             return;
         }
 
-        self.scroll_beg = line;
+        self.scroll_beg = line - 1;
         self.scroll_end = self.scroll_beg + self.term_columns;
         self.cursor.y = 0; //self.term_columns as i32 / 2;
     }
@@ -258,10 +261,21 @@ impl Renderer {
         // stdout.lock().flush().unwrap();
 
         stdin.read(&mut buffer)?;
-        // panic!("{:?}", buffer);
         if !self.handle_character(buffer) {
             return Ok(false);
         }
+        let x = char::from_u32(u32::from_le_bytes(buffer));
+        // panic!("[DEBUG PANIC] Buffer: {:?}, char: {:?}", buffer, x);
+        self.bottom_line = Some(Line::new(format!(
+            "{} {:?} Buffer: {:?}, char: {:?}",
+            match self.mode {
+                InputMode::Normal => "NORMAL",
+                InputMode::Insert => "INSERT",
+            },
+            self.cursor,
+            buffer,
+            x
+        )));
         // println!("{buffer:?}");
         self.changed = true;
         // std::thread::sleep_ms(100);
@@ -279,8 +293,15 @@ impl Renderer {
         // .min(self.scroll_end - START_SCROLL_UP as usize);
         let end = self.scroll_end.min(self.content.len());
 
-        for c in &self.content[start..end] {
-            c.render();
+        if let Some(bl) = &self.bottom_line {
+            for c in &self.content[start..end - 1] {
+                c.render();
+            }
+            bl.render();
+        } else {
+            for c in &self.content[start..end] {
+                c.render();
+            }
         }
         self.cursor.render(&self.mode);
         Self::flush()?;
