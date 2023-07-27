@@ -230,6 +230,45 @@ impl MinTodo {
                                 }
                                 self.command_parser.clear_nr_prefix();
                             }
+                            NormalModeCommand::NextWord => {
+                                let curr_line = self.content.get(self.get_current_line()).unwrap();
+                                let mut idx = None;
+                                let mut i = 1usize;
+                                // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
+                                for ch in curr_line.content[self.cursor.x..].chars() {
+                                    if ch.is_ascii_punctuation() || ch == ' ' {
+                                        idx = Some(i);
+                                        if i + self.cursor.x >= curr_line.len() - 1 {
+                                            self.move_cur_down();
+                                            self.cursor.x = 0;
+                                            idx = None;
+                                        }
+                                        break;
+                                    }
+                                    i += 1;
+                                }
+                                if let Some(idx) = idx {
+                                    self.cursor.x += idx;
+                                }
+                            }
+                            NormalModeCommand::PrevWord => {
+                                //TODO:
+                                // let curr_line = self.content.get(self.get_current_line()).unwrap();
+                                // let mut idx = None;
+                                // let mut i = 1usize;
+                                // // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
+                                // for ch in curr_line.content[..self.cursor.x].chars() {
+                                //     if !ch.is_ascii_punctuation() && ch != ' ' {
+                                //         idx = Some(i);
+                                //     } else {
+                                //         break;
+                                //     }
+                                //     i += 1;
+                                // }
+                                // if let Some(idx) = idx {
+                                //     self.cursor.x -= idx;
+                                // }
+                            }
                             _ => {}
                         }
                     }

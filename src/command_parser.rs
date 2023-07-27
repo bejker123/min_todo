@@ -17,6 +17,8 @@ pub enum NormalModeCommand {
     NewLine,
     AddLineBottom,
     AddLineTop,
+    NextWord,
+    PrevWord,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -133,6 +135,8 @@ impl CommandParser {
             }
             Character::Display('o') => Some(NormalModeCommand::AddLineBottom),
             Character::Display('O') => Some(NormalModeCommand::AddLineTop),
+            Character::Display('w') => Some(NormalModeCommand::NextWord),
+            Character::Display('b') => Some(NormalModeCommand::PrevWord),
             _ => None,
         }
     }
