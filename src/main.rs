@@ -15,7 +15,7 @@ fn main() {
     stdout.lock().flush().unwrap();
     let mut renderer = MinTodo::new();
     for i in 0..153 {
-        renderer.add_line(Line::new(i.to_string() + " Test Line "));
+        renderer.add_line(Line::from(i.to_string() + " Test Line "));
     }
 
     loop {

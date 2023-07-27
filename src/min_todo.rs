@@ -17,7 +17,14 @@ pub struct Line {
 }
 
 impl Line {
-    pub fn new<T: std::fmt::Display>(content: T) -> Self {
+    pub fn new() -> Self {
+        Self {
+            content: String::new(),
+            width: 0,
+        }
+    }
+
+    pub fn from<T: std::fmt::Display>(content: T) -> Self {
         Self {
             content: content.to_string(),
             width: content.to_string().len(),
@@ -209,7 +216,7 @@ impl MinTodo {
                                     ..self.get_current_line()
                                         + self.command_parser.nr_prefix().unwrap_or(1)
                                 {
-                                    self.content.insert(i + 1, Line::new(String::new()));
+                                    self.content.insert(i + 1, Line::new());
                                     self.move_cur_down();
                                 }
                                 self.command_parser.clear_nr_prefix();
@@ -219,7 +226,7 @@ impl MinTodo {
                                     ..self.get_current_line()
                                         + self.command_parser.nr_prefix().unwrap_or(1)
                                 {
-                                    self.content.insert(i, Line::new(String::new()));
+                                    self.content.insert(i, Line::new());
                                 }
                                 self.command_parser.clear_nr_prefix();
                             }
@@ -302,7 +309,7 @@ impl MinTodo {
         }
         let x = char::from_u32(u32::from_le_bytes(buffer));
         // panic!("[DEBUG PANIC] Buffer: {:?}, char: {:?}", buffer, x);
-        self.bottom_line = Some(Line::new(format!(
+        self.bottom_line = Some(Line::from(format!(
             "{} Line: {} {:?} Buffer: {:?}, char: {:?}",
             match self.mode {
                 InputMode::Normal => "NORMAL",
