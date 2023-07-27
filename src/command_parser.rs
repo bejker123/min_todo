@@ -12,6 +12,8 @@ pub enum NormalModeCommand {
     GoTo, //Intended for 'g'
     EnterInsertMode,
     Append,
+    Delete,
+    DeleteLine,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -117,6 +119,15 @@ impl CommandParser {
             }
             Character::Display('i') => Some(NormalModeCommand::EnterInsertMode),
             Character::Display('a') => Some(NormalModeCommand::Append),
+            Character::Display('d') => {
+                if self.command_buffer == vec![NormalModeCommand::Delete] {
+                    self.command_buffer.clear();
+                    Some(NormalModeCommand::DeleteLine)
+                } else {
+                    self.command_buffer.push(NormalModeCommand::Delete);
+                    None
+                }
+            }
             _ => None,
         }
     }

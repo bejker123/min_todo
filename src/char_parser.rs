@@ -1,4 +1,4 @@
-use crate::renderer::Buffer;
+use crate::min_todo::Buffer;
 
 pub enum Character {
     Display(char),

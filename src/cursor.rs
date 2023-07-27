@@ -1,4 +1,4 @@
-use crate::renderer::InputMode;
+use crate::min_todo::InputMode;
 
 //Represent current cursor position (0,0 based)
 #[derive(Debug)]

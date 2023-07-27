@@ -2,18 +2,18 @@
 mod char_parser;
 mod command_parser;
 mod cursor;
-mod renderer;
+mod min_todo;
 
 use std::io::Write;
 
-use renderer::{Line, Renderer};
+use min_todo::{Line, MinTodo};
 use termion::raw::IntoRawMode;
 
 fn main() {
     print!("{}", termion::screen::ToAlternateScreen);
     let stdout = std::io::stdout().into_raw_mode().unwrap();
     stdout.lock().flush().unwrap();
-    let mut renderer = Renderer::new();
+    let mut renderer = MinTodo::new();
     for i in 0..153 {
         renderer.add_line(Line::new(i.to_string() + " Test Line "));
     }

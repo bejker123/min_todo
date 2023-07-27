@@ -42,7 +42,7 @@ pub enum InputMode {
 }
 
 #[derive(Debug)]
-pub struct Renderer {
+pub struct MinTodo {
     content: Vec<Line>,
     cursor: Cursor,
     changed: bool,
@@ -56,7 +56,7 @@ pub struct Renderer {
     bottom_line: Option<Line>,
 }
 
-impl Renderer {
+impl MinTodo {
     pub fn new() -> Self {
         let term_columns = termion::terminal_size().unwrap().1 as usize;
         Self {
@@ -149,6 +149,20 @@ impl Renderer {
         self.cursor.y + self.scroll_beg
     }
 
+    fn align_cursor(&mut self) {
+        //It's safe to unwrap here
+        let cll = self
+            .content
+            .get(self.get_current_line())
+            .unwrap()
+            .len()
+            .max(1)
+            - 1;
+        if cll < self.cursor.x {
+            self.cursor.x = cll;
+        }
+    }
+
     //Return false to exit.
     fn handle_character(&mut self, buffer: Buffer) -> bool {
         if let Some(ch) = char_parser::parse_char(buffer) {
@@ -186,7 +200,14 @@ impl Renderer {
                                 self.cursor.move_x(1);
                                 self.changed = true;
                             }
-
+                            NormalModeCommand::DeleteLine => {
+                                for i in self.get_current_line()
+                                    ..self.command_parser.nr_prefix().unwrap_or(1)
+                                {
+                                    self.content.remove(i);
+                                }
+                                self.command_parser.clear_nr_prefix();
+                            }
                             _ => {}
                         }
                     }
@@ -267,15 +288,17 @@ impl Renderer {
         let x = char::from_u32(u32::from_le_bytes(buffer));
         // panic!("[DEBUG PANIC] Buffer: {:?}, char: {:?}", buffer, x);
         self.bottom_line = Some(Line::new(format!(
-            "{} {:?} Buffer: {:?}, char: {:?}",
+            "{} Line: {} {:?} Buffer: {:?}, char: {:?}",
             match self.mode {
                 InputMode::Normal => "NORMAL",
                 InputMode::Insert => "INSERT",
             },
+            self.get_current_line(),
             self.cursor,
             buffer,
             x
         )));
+        self.align_cursor();
         // println!("{buffer:?}");
         self.changed = true;
         // std::thread::sleep_ms(100);
