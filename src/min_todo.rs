@@ -102,10 +102,8 @@ impl MinTodo {
                 self.scroll_beg += 1;
             }
             self.scroll_end += 1;
-        } else {
-            if self.get_current_line() < self.content.len() - 1 {
-                self.cursor.move_y(1);
-            }
+        } else if self.get_current_line() < self.content.len() - 1 {
+            self.cursor.move_y(1);
         }
     }
     fn move_cur_up(&mut self) {

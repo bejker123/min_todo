@@ -11,7 +11,7 @@ impl Cursor {
     pub fn render(&self, mode: &InputMode) {
         print!(
             "{}{}{}",
-            termion::cursor::Show.to_string(),
+            termion::cursor::Show,
             termion::cursor::Goto(self.x as u16 + 1, self.y as u16 + 1), //We have to add 1, bcs
             //GoTo() is 1,1 based, but
             //we represent the coords
