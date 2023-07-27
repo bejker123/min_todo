@@ -201,10 +201,27 @@ impl MinTodo {
                                 self.changed = true;
                             }
                             NormalModeCommand::DeleteLine => {
+                                let cl = self.get_current_line();
+                                self.content
+                                    .drain(cl..cl + self.command_parser.nr_prefix().unwrap_or(1));
+                                self.command_parser.clear_nr_prefix();
+                            }
+                            NormalModeCommand::AddLineBottom => {
                                 for i in self.get_current_line()
-                                    ..self.command_parser.nr_prefix().unwrap_or(1)
+                                    ..self.get_current_line()
+                                        + self.command_parser.nr_prefix().unwrap_or(1)
                                 {
-                                    self.content.remove(i);
+                                    self.content.insert(i + 1, Line::new(String::new()));
+                                    self.move_cur_down();
+                                }
+                                self.command_parser.clear_nr_prefix();
+                            }
+                            NormalModeCommand::AddLineTop => {
+                                for i in self.get_current_line()
+                                    ..self.get_current_line()
+                                        + self.command_parser.nr_prefix().unwrap_or(1)
+                                {
+                                    self.content.insert(i, Line::new(String::new()));
                                 }
                                 self.command_parser.clear_nr_prefix();
                             }

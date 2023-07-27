@@ -14,6 +14,9 @@ pub enum NormalModeCommand {
     Append,
     Delete,
     DeleteLine,
+    NewLine,
+    AddLineBottom,
+    AddLineTop,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -128,6 +131,8 @@ impl CommandParser {
                     None
                 }
             }
+            Character::Display('o') => Some(NormalModeCommand::AddLineBottom),
+            Character::Display('O') => Some(NormalModeCommand::AddLineTop),
             _ => None,
         }
     }
