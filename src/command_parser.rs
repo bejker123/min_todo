@@ -19,6 +19,8 @@ pub enum NormalModeCommand {
     AddLineTop,
     NextWord,
     PrevWord,
+    ToBeg,
+    ToEnd,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -46,16 +48,19 @@ impl CommandParser {
             nr_prefix: None,
         }
     }
-    fn handle_number_prefix(&mut self, c: char) {
+    fn handle_number_prefix(&mut self, c: char) -> Option<NormalModeCommand> {
         let nr = c.to_string().parse::<usize>().unwrap(); //We are sure this is a number so
-                                                          //we can unwrap here
 
         if let Some(prev) = self.nr_prefix {
             self.nr_prefix = Some(prev * 10 + nr);
-        } else if nr != 0 {
+        } else if nr == 0 {
             //If the nr begins with 0 we ignore the 0
+            return Some(NormalModeCommand::ToBeg);
+        } else {
             self.nr_prefix = Some(nr);
         }
+
+        None
     }
 
     pub fn parse_insert_mode_command(&self, c: Character) -> Option<InsertModeCommand> {
@@ -118,9 +123,10 @@ impl CommandParser {
             }
             Character::Display('0'..='9') => {
                 if let Character::Display(c) = c {
-                    self.handle_number_prefix(c);
+                    self.handle_number_prefix(c)
+                } else {
+                    None
                 }
-                None
             }
             Character::Display('i') => Some(NormalModeCommand::EnterInsertMode),
             Character::Display('a') => Some(NormalModeCommand::Append),
@@ -137,6 +143,7 @@ impl CommandParser {
             Character::Display('O') => Some(NormalModeCommand::AddLineTop),
             Character::Display('w') => Some(NormalModeCommand::NextWord),
             Character::Display('b') => Some(NormalModeCommand::PrevWord),
+            Character::Display('$') => Some(NormalModeCommand::ToEnd),
             _ => None,
         }
     }

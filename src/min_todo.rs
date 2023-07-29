@@ -272,6 +272,12 @@ impl MinTodo {
                                     }
                                 }
                             }
+                            NormalModeCommand::ToBeg => self.cursor.x = 0,
+                            NormalModeCommand::ToEnd => {
+                                self.cursor.x =
+                                    self.content.get(self.get_current_line()).unwrap().len()
+                            }
+
                             _ => {}
                         }
                     }
