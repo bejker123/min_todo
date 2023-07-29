@@ -257,21 +257,20 @@ impl MinTodo {
                             }
                             NormalModeCommand::PrevWord => {
                                 //TODO:
-                                // let curr_line = self.content.get(self.get_current_line()).unwrap();
-                                // let mut idx = None;
-                                // let mut i = 1usize;
-                                // // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
-                                // for ch in curr_line.content[..self.cursor.x].chars() {
-                                //     if !ch.is_ascii_punctuation() && ch != ' ' {
-                                //         idx = Some(i);
-                                //     } else {
-                                //         break;
-                                //     }
-                                //     i += 1;
-                                // }
-                                // if let Some(idx) = idx {
-                                //     self.cursor.x -= idx;
-                                // }
+                                //This code is trash.
+                                let curr_line = self.content.get(self.get_current_line()).unwrap();
+                                let sp = curr_line.content.split(|ch: char| {
+                                    ch.is_ascii_punctuation() || ch.is_whitespace()
+                                });
+                                let lengths = sp.map(|x: &str| x.len()).collect::<Vec<usize>>();
+                                let mut idx = 0;
+                                for i in lengths {
+                                    idx += i;
+                                    if idx <= self.cursor.x {
+                                        self.cursor.x = idx;
+                                        break;
+                                    }
+                                }
                             }
                             _ => {}
                         }
@@ -353,11 +352,13 @@ impl MinTodo {
         let x = char::from_u32(u32::from_le_bytes(buffer));
         // panic!("[DEBUG PANIC] Buffer: {:?}, char: {:?}", buffer, x);
         self.bottom_line = Some(Line::from(format!(
-            "{} Line: {} {:?} Buffer: {:?}, char: {:?}",
+            "{}{}{} Line: {} {:?} Buffer: {:?}, char: {:?}",
+            termion::style::Bold,
             match self.mode {
                 InputMode::Normal => "NORMAL",
                 InputMode::Insert => "INSERT",
             },
+            termion::style::Reset,
             self.get_current_line(),
             self.cursor,
             buffer,
