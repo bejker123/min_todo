@@ -416,10 +416,13 @@ mod test {
     #[cfg(test)]
     use super::MinTodo;
     #[cfg(test)]
-    use crate::{command_parser::NormalModeCommand, min_todo::Line};
+    use crate::{
+        command_parser::{InsertModeCommand, NormalModeCommand},
+        min_todo::Line,
+    };
 
     #[test]
-    fn movement() {
+    fn movement_nomal_mode() {
         let mut mt = MinTodo::new();
         mt.add_line(Line::from("Line of length 17"));
         mt.add_line(Line::from("Line of length 17"));
@@ -443,6 +446,25 @@ mod test {
         assert_eq!(mt.cursor.x, 17);
 
         mt.handle_normal_mode_command(NormalModeCommand::ToBeg);
+        assert_eq!(mt.cursor.x, 0);
+    }
+
+    #[test]
+    fn movement_insert_mode() {
+        let mut mt = MinTodo::new();
+        mt.add_line(Line::from("Line of length 17"));
+        mt.add_line(Line::from("Line of length 17"));
+
+        mt.handle_insert_mode_command(InsertModeCommand::MoveDown);
+        assert_eq!(mt.curr_line_nr(), 1);
+
+        mt.handle_insert_mode_command(InsertModeCommand::MoveUp);
+        assert_eq!(mt.curr_line_nr(), 0);
+
+        mt.handle_insert_mode_command(InsertModeCommand::MoveRight);
+        assert_eq!(mt.cursor.x, 1);
+
+        mt.handle_insert_mode_command(InsertModeCommand::MoveLeft);
         assert_eq!(mt.cursor.x, 0);
     }
 }
