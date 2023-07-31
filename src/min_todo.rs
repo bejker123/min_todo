@@ -109,7 +109,7 @@ impl MinTodo {
                 self.scroll_beg += 1;
             }
             self.scroll_end += 1;
-        } else if self.curr_line_len() < self.content.len() - 1 {
+        } else if self.curr_line_nr() < self.content.len() - 1 {
             self.cursor.move_y(1);
         }
     }
@@ -421,19 +421,28 @@ mod test {
     #[test]
     fn movement() {
         let mut mt = MinTodo::new();
-        mt.add_line(Line::new());
-        mt.add_line(Line::new());
+        mt.add_line(Line::from("Line of length 17"));
+        mt.add_line(Line::from("Line of length 17"));
 
         mt.handle_normal_mode_command(NormalModeCommand::MoveDown);
-        assert_eq!(mt.cursor.y, 1);
+        assert_eq!(mt.curr_line_nr(), 1);
 
         mt.handle_normal_mode_command(NormalModeCommand::MoveUp);
-        assert_eq!(mt.cursor.y, 0);
+        assert_eq!(mt.curr_line_nr(), 0);
 
         mt.handle_normal_mode_command(NormalModeCommand::MoveRight);
         assert_eq!(mt.cursor.x, 1);
 
         mt.handle_normal_mode_command(NormalModeCommand::MoveLeft);
+        assert_eq!(mt.cursor.x, 0);
+
+        mt.handle_normal_mode_command(NormalModeCommand::MoveLeft);
+        assert_eq!(mt.cursor.x, 0);
+
+        mt.handle_normal_mode_command(NormalModeCommand::ToEnd);
+        assert_eq!(mt.cursor.x, 17);
+
+        mt.handle_normal_mode_command(NormalModeCommand::ToBeg);
         assert_eq!(mt.cursor.x, 0);
     }
 }
