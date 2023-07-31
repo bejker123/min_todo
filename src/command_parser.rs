@@ -259,7 +259,11 @@ mod test {
     #[test]
     fn parse_command_nr() {
         let mut cp = CommandParser::new();
-        for i in '0'..='9' {
+        assert_eq!(
+            cp.parse_command(Character::Display('0')),
+            Some(NormalModeCommand::ToBeg)
+        );
+        for i in '1'..='9' {
             assert_eq!(cp.parse_command(Character::Display(i)), None);
         }
     }

@@ -109,7 +109,7 @@ impl MinTodo {
                 self.scroll_beg += 1;
             }
             self.scroll_end += 1;
-        } else if self.get_current_line() < self.content.len() - 1 {
+        } else if self.curr_line_len() < self.content.len() - 1 {
             self.cursor.move_y(1);
         }
     }
@@ -150,19 +150,26 @@ impl MinTodo {
         self.cursor.y = self.term_columns - 1;
     }
 
-    fn get_current_line(&self) -> usize {
+    fn curr_line_nr(&self) -> usize {
         self.cursor.y + self.scroll_beg
+    }
+
+    fn curr_line_len(&self) -> usize {
+        self.content.get(self.curr_line_nr()).unwrap().len()
+    }
+
+    fn curr_line(&self) -> &Line {
+        self.content.get(self.curr_line_nr()).unwrap()
+    }
+
+    fn curr_line_mut(&mut self) -> &mut Line {
+        let idx = self.curr_line_nr();
+        self.content.get_mut(idx).unwrap()
     }
 
     fn align_cursor(&mut self) {
         //It's safe to unwrap here
-        let cll = self
-            .content
-            .get(self.get_current_line())
-            .unwrap()
-            .len()
-            .max(1)
-            - 1;
+        let cll = self.curr_line_len().max(1) - 1;
         if cll < self.cursor.x {
             self.cursor.x = cll;
         }
@@ -206,14 +213,14 @@ impl MinTodo {
                                 self.changed = true;
                             }
                             NormalModeCommand::DeleteLine => {
-                                let cl = self.get_current_line();
+                                let cl = self.curr_line_nr();
                                 self.content
                                     .drain(cl..cl + self.command_parser.nr_prefix().unwrap_or(1));
                                 self.command_parser.clear_nr_prefix();
                             }
                             NormalModeCommand::AddLineBottom => {
-                                for i in self.get_current_line()
-                                    ..self.get_current_line()
+                                for i in self.curr_line_nr()
+                                    ..self.curr_line_nr()
                                         + self.command_parser.nr_prefix().unwrap_or(1)
                                 {
                                     self.content.insert(i + 1, Line::new());
@@ -222,8 +229,8 @@ impl MinTodo {
                                 self.command_parser.clear_nr_prefix();
                             }
                             NormalModeCommand::AddLineTop => {
-                                for i in self.get_current_line()
-                                    ..self.get_current_line()
+                                for i in self.curr_line_nr()
+                                    ..self.curr_line_nr()
                                         + self.command_parser.nr_prefix().unwrap_or(1)
                                 {
                                     self.content.insert(i, Line::new());
@@ -232,8 +239,7 @@ impl MinTodo {
                             }
                             NormalModeCommand::NextWord => {
                                 for _ in 0..self.command_parser.nr_prefix().unwrap_or(1) {
-                                    let curr_line =
-                                        self.content.get(self.get_current_line()).unwrap();
+                                    let curr_line = self.curr_line();
                                     let mut idx = None;
                                     let mut i = 1usize;
                                     // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
@@ -258,7 +264,7 @@ impl MinTodo {
                             NormalModeCommand::PrevWord => {
                                 //TODO:
                                 //This code is trash.
-                                let curr_line = self.content.get(self.get_current_line()).unwrap();
+                                let curr_line = self.curr_line();
                                 let sp = curr_line.content.split(|ch: char| {
                                     ch.is_ascii_punctuation() || ch.is_whitespace()
                                 });
@@ -273,10 +279,7 @@ impl MinTodo {
                                 }
                             }
                             NormalModeCommand::ToBeg => self.cursor.x = 0,
-                            NormalModeCommand::ToEnd => {
-                                self.cursor.x =
-                                    self.content.get(self.get_current_line()).unwrap().len()
-                            }
+                            NormalModeCommand::ToEnd => self.cursor.x = self.curr_line_len(),
 
                             _ => {}
                         }
@@ -291,22 +294,20 @@ impl MinTodo {
                                 self.changed = true;
                             }
                             InsertModeCommand::Backspace => {
-                                if self.cursor.x != 0 {
-                                    let curr = self.get_current_line();
-                                    if let Some(curr) = self.content.get_mut(curr) {
-                                        if self.cursor.x - 1 < curr.len() {
-                                            curr.content.remove(self.cursor.x - 1);
-                                            self.cursor.move_x(-1);
-                                        }
+                                let cursor_x = self.cursor.x;
+                                if cursor_x != 0 {
+                                    let curr = self.curr_line_mut();
+                                    if cursor_x - 1 < curr.len() {
+                                        curr.content.remove(cursor_x - 1);
+                                        self.cursor.move_x(-1);
                                     }
                                 }
                             }
                             InsertModeCommand::Delete => {
-                                let curr = self.get_current_line();
-                                if let Some(curr) = self.content.get_mut(curr) {
-                                    if self.cursor.x < curr.len() {
-                                        curr.content.remove(self.cursor.x);
-                                    }
+                                let cursor_x = self.cursor.x;
+                                let curr = self.curr_line_mut();
+                                if cursor_x < curr.len() {
+                                    curr.content.remove(cursor_x);
                                 }
                             }
                             //Arrow Up
@@ -326,11 +327,10 @@ impl MinTodo {
                                 self.cursor.move_x(1);
                             }
                             InsertModeCommand::Insert(c) => {
-                                let curr = self.get_current_line();
-                                if let Some(curr) = self.content.get_mut(curr) {
-                                    curr.content.insert(self.cursor.x, c);
-                                    self.cursor.move_x(1);
-                                }
+                                let cursor_x = self.cursor.x;
+                                let curr = self.curr_line_mut();
+                                curr.content.insert(cursor_x, c);
+                                self.cursor.move_x(1);
                             }
                         }
                     }
@@ -365,7 +365,7 @@ impl MinTodo {
                 InputMode::Insert => "INSERT",
             },
             termion::style::Reset,
-            self.get_current_line(),
+            self.curr_line_nr(),
             self.cursor,
             buffer,
             x
