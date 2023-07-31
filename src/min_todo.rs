@@ -175,164 +175,171 @@ impl MinTodo {
         }
     }
 
+    fn handle_normal_mode_command(&mut self, command: NormalModeCommand) -> bool {
+        match command {
+            NormalModeCommand::Quit => return Self::exit(),
+            NormalModeCommand::MoveDown => self.move_cur_down(),
+            NormalModeCommand::MoveUp => self.move_cur_up(),
+            NormalModeCommand::MoveLeft => self.cursor.move_x(-1),
+            NormalModeCommand::MoveRight => self.cursor.move_x(1),
+            NormalModeCommand::MoveToBottom => {
+                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                    self.move_to_line(nr_prefix);
+                    self.command_parser.clear_nr_prefix();
+                } else {
+                    self.move_to_bottom();
+                }
+            }
+            NormalModeCommand::MoveToTop => {
+                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
+                    self.move_to_line(nr_prefix);
+                    self.command_parser.clear_nr_prefix();
+                } else {
+                    self.move_to_top();
+                }
+            }
+            NormalModeCommand::EnterInsertMode => {
+                self.mode = InputMode::Insert;
+                self.changed = true;
+            }
+            NormalModeCommand::Append => {
+                self.mode = InputMode::Insert;
+                self.cursor.move_x(1);
+                self.changed = true;
+            }
+            NormalModeCommand::DeleteLine => {
+                let cl = self.curr_line_nr();
+                self.content
+                    .drain(cl..cl + self.command_parser.nr_prefix().unwrap_or(1));
+                self.command_parser.clear_nr_prefix();
+            }
+            NormalModeCommand::AddLineBottom => {
+                for i in self.curr_line_nr()
+                    ..self.curr_line_nr() + self.command_parser.nr_prefix().unwrap_or(1)
+                {
+                    self.content.insert(i + 1, Line::new());
+                    self.move_cur_down();
+                }
+                self.command_parser.clear_nr_prefix();
+            }
+            NormalModeCommand::AddLineTop => {
+                for i in self.curr_line_nr()
+                    ..self.curr_line_nr() + self.command_parser.nr_prefix().unwrap_or(1)
+                {
+                    self.content.insert(i, Line::new());
+                }
+                self.command_parser.clear_nr_prefix();
+            }
+            NormalModeCommand::NextWord => {
+                for _ in 0..self.command_parser.nr_prefix().unwrap_or(1) {
+                    let curr_line = self.curr_line();
+                    let mut idx = None;
+                    let mut i = 1usize;
+                    // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
+                    for ch in curr_line.content[self.cursor.x..].chars() {
+                        if ch.is_ascii_punctuation() || ch == ' ' {
+                            idx = Some(i);
+                            if i + self.cursor.x >= curr_line.len() - 1 {
+                                self.move_cur_down();
+                                self.cursor.x = 0;
+                                idx = None;
+                            }
+                            break;
+                        }
+                        i += 1;
+                    }
+                    if let Some(idx) = idx {
+                        self.cursor.x += idx;
+                    }
+                }
+                self.command_parser.clear_nr_prefix();
+            }
+            NormalModeCommand::PrevWord => {
+                //TODO:
+                //This code is trash.
+                let curr_line = self.curr_line();
+                let sp = curr_line
+                    .content
+                    .split(|ch: char| ch.is_ascii_punctuation() || ch.is_whitespace());
+                let lengths = sp.map(|x: &str| x.len()).collect::<Vec<usize>>();
+                let mut idx = 0;
+                for i in lengths {
+                    idx += i;
+                    if idx <= self.cursor.x {
+                        self.cursor.x = idx;
+                        break;
+                    }
+                }
+            }
+            NormalModeCommand::ToBeg => self.cursor.x = 0,
+            NormalModeCommand::ToEnd => self.cursor.x = self.curr_line_len(),
+
+            _ => {}
+        }
+        true
+    }
+
+    fn handle_insert_mode_command(&mut self, command: InsertModeCommand) {
+        match command {
+            InsertModeCommand::EnterNormalMode => {
+                self.mode = InputMode::Normal;
+                self.cursor.move_x(-1);
+                self.changed = true;
+            }
+            InsertModeCommand::Backspace => {
+                let cursor_x = self.cursor.x;
+                if cursor_x != 0 {
+                    let curr = self.curr_line_mut();
+                    if cursor_x - 1 < curr.len() {
+                        curr.content.remove(cursor_x - 1);
+                        self.cursor.move_x(-1);
+                    }
+                }
+            }
+            InsertModeCommand::Delete => {
+                let cursor_x = self.cursor.x;
+                let curr = self.curr_line_mut();
+                if cursor_x < curr.len() {
+                    curr.content.remove(cursor_x);
+                }
+            }
+            //Arrow Up
+            InsertModeCommand::MoveUp => {
+                self.move_cur_up();
+            }
+            //Arrow Down
+            InsertModeCommand::MoveDown => {
+                self.move_cur_down();
+            }
+            //Arrow Left
+            InsertModeCommand::MoveLeft => {
+                self.cursor.move_x(-1);
+            }
+            //Arrow Right
+            InsertModeCommand::MoveRight => {
+                self.cursor.move_x(1);
+            }
+            InsertModeCommand::Insert(c) => {
+                let cursor_x = self.cursor.x;
+                let curr = self.curr_line_mut();
+                curr.content.insert(cursor_x, c);
+                self.cursor.move_x(1);
+            }
+        }
+    }
+
     //Return false to exit.
     fn handle_character(&mut self, buffer: Buffer) -> bool {
         if let Some(ch) = char_parser::parse_char(buffer) {
             match self.mode {
                 InputMode::Normal => {
                     if let Some(command) = self.command_parser.parse_command(ch) {
-                        match command {
-                            NormalModeCommand::Quit => return Self::exit(),
-                            NormalModeCommand::MoveDown => self.move_cur_down(),
-                            NormalModeCommand::MoveUp => self.move_cur_up(),
-                            NormalModeCommand::MoveLeft => self.cursor.move_x(-1),
-                            NormalModeCommand::MoveRight => self.cursor.move_x(1),
-                            NormalModeCommand::MoveToBottom => {
-                                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                    self.move_to_line(nr_prefix);
-                                    self.command_parser.clear_nr_prefix();
-                                } else {
-                                    self.move_to_bottom();
-                                }
-                            }
-                            NormalModeCommand::MoveToTop => {
-                                if let Some(nr_prefix) = self.command_parser.nr_prefix() {
-                                    self.move_to_line(nr_prefix);
-                                    self.command_parser.clear_nr_prefix();
-                                } else {
-                                    self.move_to_top();
-                                }
-                            }
-                            NormalModeCommand::EnterInsertMode => {
-                                self.mode = InputMode::Insert;
-                                self.changed = true;
-                            }
-                            NormalModeCommand::Append => {
-                                self.mode = InputMode::Insert;
-                                self.cursor.move_x(1);
-                                self.changed = true;
-                            }
-                            NormalModeCommand::DeleteLine => {
-                                let cl = self.curr_line_nr();
-                                self.content
-                                    .drain(cl..cl + self.command_parser.nr_prefix().unwrap_or(1));
-                                self.command_parser.clear_nr_prefix();
-                            }
-                            NormalModeCommand::AddLineBottom => {
-                                for i in self.curr_line_nr()
-                                    ..self.curr_line_nr()
-                                        + self.command_parser.nr_prefix().unwrap_or(1)
-                                {
-                                    self.content.insert(i + 1, Line::new());
-                                    self.move_cur_down();
-                                }
-                                self.command_parser.clear_nr_prefix();
-                            }
-                            NormalModeCommand::AddLineTop => {
-                                for i in self.curr_line_nr()
-                                    ..self.curr_line_nr()
-                                        + self.command_parser.nr_prefix().unwrap_or(1)
-                                {
-                                    self.content.insert(i, Line::new());
-                                }
-                                self.command_parser.clear_nr_prefix();
-                            }
-                            NormalModeCommand::NextWord => {
-                                for _ in 0..self.command_parser.nr_prefix().unwrap_or(1) {
-                                    let curr_line = self.curr_line();
-                                    let mut idx = None;
-                                    let mut i = 1usize;
-                                    // panic!("{:?}", curr_line.content[self.cursor.x..].chars());
-                                    for ch in curr_line.content[self.cursor.x..].chars() {
-                                        if ch.is_ascii_punctuation() || ch == ' ' {
-                                            idx = Some(i);
-                                            if i + self.cursor.x >= curr_line.len() - 1 {
-                                                self.move_cur_down();
-                                                self.cursor.x = 0;
-                                                idx = None;
-                                            }
-                                            break;
-                                        }
-                                        i += 1;
-                                    }
-                                    if let Some(idx) = idx {
-                                        self.cursor.x += idx;
-                                    }
-                                }
-                                self.command_parser.clear_nr_prefix();
-                            }
-                            NormalModeCommand::PrevWord => {
-                                //TODO:
-                                //This code is trash.
-                                let curr_line = self.curr_line();
-                                let sp = curr_line.content.split(|ch: char| {
-                                    ch.is_ascii_punctuation() || ch.is_whitespace()
-                                });
-                                let lengths = sp.map(|x: &str| x.len()).collect::<Vec<usize>>();
-                                let mut idx = 0;
-                                for i in lengths {
-                                    idx += i;
-                                    if idx <= self.cursor.x {
-                                        self.cursor.x = idx;
-                                        break;
-                                    }
-                                }
-                            }
-                            NormalModeCommand::ToBeg => self.cursor.x = 0,
-                            NormalModeCommand::ToEnd => self.cursor.x = self.curr_line_len(),
-
-                            _ => {}
-                        }
+                        return self.handle_normal_mode_command(command);
                     }
                 }
                 InputMode::Insert => {
                     if let Some(command) = self.command_parser.parse_insert_mode_command(ch) {
-                        match command {
-                            InsertModeCommand::EnterNormalMode => {
-                                self.mode = InputMode::Normal;
-                                self.cursor.move_x(-1);
-                                self.changed = true;
-                            }
-                            InsertModeCommand::Backspace => {
-                                let cursor_x = self.cursor.x;
-                                if cursor_x != 0 {
-                                    let curr = self.curr_line_mut();
-                                    if cursor_x - 1 < curr.len() {
-                                        curr.content.remove(cursor_x - 1);
-                                        self.cursor.move_x(-1);
-                                    }
-                                }
-                            }
-                            InsertModeCommand::Delete => {
-                                let cursor_x = self.cursor.x;
-                                let curr = self.curr_line_mut();
-                                if cursor_x < curr.len() {
-                                    curr.content.remove(cursor_x);
-                                }
-                            }
-                            //Arrow Up
-                            InsertModeCommand::MoveUp => {
-                                self.move_cur_up();
-                            }
-                            //Arrow Down
-                            InsertModeCommand::MoveDown => {
-                                self.move_cur_down();
-                            }
-                            //Arrow Left
-                            InsertModeCommand::MoveLeft => {
-                                self.cursor.move_x(-1);
-                            }
-                            //Arrow Right
-                            InsertModeCommand::MoveRight => {
-                                self.cursor.move_x(1);
-                            }
-                            InsertModeCommand::Insert(c) => {
-                                let cursor_x = self.cursor.x;
-                                let curr = self.curr_line_mut();
-                                curr.content.insert(cursor_x, c);
-                                self.cursor.move_x(1);
-                            }
-                        }
+                        self.handle_insert_mode_command(command);
                     }
                 }
             }
@@ -401,5 +408,32 @@ impl MinTodo {
         self.cursor.render(&self.mode);
         Self::flush()?;
         Ok(())
+    }
+}
+
+mod test {
+
+    #[cfg(test)]
+    use super::MinTodo;
+    #[cfg(test)]
+    use crate::{command_parser::NormalModeCommand, min_todo::Line};
+
+    #[test]
+    fn movement() {
+        let mut mt = MinTodo::new();
+        mt.add_line(Line::new());
+        mt.add_line(Line::new());
+
+        mt.handle_normal_mode_command(NormalModeCommand::MoveDown);
+        assert_eq!(mt.cursor.y, 1);
+
+        mt.handle_normal_mode_command(NormalModeCommand::MoveUp);
+        assert_eq!(mt.cursor.y, 0);
+
+        mt.handle_normal_mode_command(NormalModeCommand::MoveRight);
+        assert_eq!(mt.cursor.x, 1);
+
+        mt.handle_normal_mode_command(NormalModeCommand::MoveLeft);
+        assert_eq!(mt.cursor.x, 0);
     }
 }
