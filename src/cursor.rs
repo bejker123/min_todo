@@ -1,7 +1,7 @@
 use crate::min_todo::InputMode;
 
 //Represent current cursor position (0,0 based)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Cursor {
     pub x: usize,
     pub y: usize,
@@ -40,11 +40,5 @@ impl Cursor {
         } else {
             self.y += y.wrapping_abs() as usize;
         }
-    }
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self { x: 0, y: 0 }
     }
 }

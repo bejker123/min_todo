@@ -14,7 +14,6 @@ pub enum NormalModeCommand {
     Append,
     Delete,
     DeleteLine,
-    NewLine,
     AddLineBottom,
     AddLineTop,
     NextWord,
@@ -86,7 +85,7 @@ impl CommandParser {
             Character::ArrowRight => Some(InsertModeCommand::MoveRight),
             //Delete
             Character::Delete => Some(InsertModeCommand::Delete),
-            _ => None,
+            // _ => None,
         }
     }
 
@@ -98,7 +97,7 @@ impl CommandParser {
                 None
             }
             //Ctrl-C
-            Character::Display('\u{3}') | Character::Display('q') => Some(NormalModeCommand::Quit),
+            Character::Display('\u{3}' | 'q') => Some(NormalModeCommand::Quit),
             Character::ArrowDown | Character::Display('j') => Some(NormalModeCommand::MoveDown),
             Character::ArrowUp | Character::Display('k') => Some(NormalModeCommand::MoveUp),
             Character::ArrowLeft | Character::Display('h') => Some(NormalModeCommand::MoveLeft),
