@@ -255,21 +255,40 @@ impl MinTodo {
                 self.command_parser.clear_nr_prefix();
             }
             NormalModeCommand::PrevWord => {
-                //TODO:
-                //This code is trash.
-                let curr_line = self.curr_line();
-                let sp = curr_line
-                    .content
-                    .split(|ch: char| ch.is_ascii_punctuation() || ch.is_whitespace());
-                let lengths = sp.map(|x: &str| x.len()).collect::<Vec<usize>>();
-                let mut idx = 0;
-                for i in lengths {
-                    idx += i;
-                    if idx <= self.cursor.x {
-                        self.cursor.x = idx;
-                        break;
+                for _ in 0..self.command_parser.nr_prefix().unwrap_or(1) {
+                    if self.cursor.x == 0 && self.curr_line_nr() != 0 {
+                        self.move_cur_up();
+                        self.cursor.x = self.curr_line_len() - 1;
+                    }
+                    let curr_line = self.curr_line();
+                    let mut idx = None;
+                    let mut i = 0usize;
+
+                    // panic!(
+                    //     "{} {:?}",
+                    //     self.cursor.x,
+                    //     curr_line.content[..self.cursor.x].chars().rev()
+                    // );
+
+                    for ch in curr_line.content[..self.cursor.x].chars().rev() {
+                        if (ch.is_ascii_punctuation() || ch == ' ') && i != 0 {
+                            idx = Some(i);
+                            // if self.cursor.x - i <= 0 {
+                            //     self.move_cur_up();
+                            //     self.cursor.x = self.curr_line_len() - 1;
+                            //     idx = None;
+                            // }
+                            break;
+                        }
+                        i += 1;
+                    }
+                    if let Some(idx) = idx {
+                        self.cursor.x -= idx;
+                    } else {
+                        self.cursor.x = 0;
                     }
                 }
+                self.command_parser.clear_nr_prefix();
             }
             NormalModeCommand::ToBeg => self.cursor.x = 0,
             NormalModeCommand::ToEnd => self.cursor.x = self.curr_line_len(),
