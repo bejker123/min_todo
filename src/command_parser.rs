@@ -20,6 +20,7 @@ pub enum NormalModeCommand {
     PrevWord,
     ToBeg,
     ToEnd,
+    DeleteChar,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -143,6 +144,7 @@ impl CommandParser {
             Character::Display('w') => Some(NormalModeCommand::NextWord),
             Character::Display('b') => Some(NormalModeCommand::PrevWord),
             Character::Display('$') => Some(NormalModeCommand::ToEnd),
+            Character::Display('x') => Some(NormalModeCommand::DeleteChar),
             _ => None,
         }
     }

@@ -273,6 +273,17 @@ impl MinTodo {
             }
             NormalModeCommand::ToBeg => self.cursor.x = 0,
             NormalModeCommand::ToEnd => self.cursor.x = self.curr_line_len(),
+            NormalModeCommand::DeleteChar => {
+                let nr = self.curr_line_nr();
+                let curr = self.content.get_mut(nr).unwrap();
+                for _ in 0..self.command_parser.nr_prefix().unwrap_or(1) {
+                    if curr.content.is_empty() {
+                        break;
+                    }
+                    curr.content.remove(self.cursor.x);
+                }
+                self.command_parser.clear_nr_prefix();
+            }
 
             _ => {}
         }
