@@ -48,6 +48,12 @@ impl CommandParser {
             nr_prefix: None,
         }
     }
+
+    #[cfg(test)]
+    pub fn set_nr_prefix(&mut self, nr_prefix: Option<usize>) {
+        self.nr_prefix = nr_prefix;
+    }
+
     fn handle_number_prefix(&mut self, c: char) -> Option<NormalModeCommand> {
         let nr = c.to_string().parse::<usize>().unwrap(); //We are sure this is a number so
 

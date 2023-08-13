@@ -477,6 +477,20 @@ mod test {
 
         mt.handle_normal_mode_command(NormalModeCommand::ToBeg);
         assert_eq!(mt.cursor.x, 0);
+
+        mt.handle_normal_mode_command(NormalModeCommand::NextWord);
+        assert_eq!(mt.cursor.x, 5);
+
+        mt.handle_normal_mode_command(NormalModeCommand::PrevWord);
+        assert_eq!(mt.cursor.x, 0);
+
+        mt.command_parser.set_nr_prefix(Some(2));
+        mt.handle_normal_mode_command(NormalModeCommand::NextWord);
+        assert_eq!(mt.cursor.x, 8);
+
+        mt.command_parser.set_nr_prefix(Some(2));
+        mt.handle_normal_mode_command(NormalModeCommand::PrevWord);
+        assert_eq!(mt.cursor.x, 0);
     }
 
     #[test]
