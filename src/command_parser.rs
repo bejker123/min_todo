@@ -89,7 +89,7 @@ impl CommandParser {
         }
     }
 
-    pub fn parse_command(&mut self, c: Character) -> Option<NormalModeCommand> {
+    pub fn parse_normal_mode_command(&mut self, c: Character) -> Option<NormalModeCommand> {
         match c {
             //Esc
             Character::Esc => {
@@ -208,49 +208,49 @@ mod test {
         Some(InsertModeCommand::MoveRight)
     );
 
-    macro_rules! parse_command_test_wrapper {
+    macro_rules! parse_normal_command_test_wrapper {
         ($name: ident,$c: expr, $out: expr) => {
             #[test]
             fn $name() {
                 let mut cp = CommandParser::new();
-                assert_eq!(cp.parse_command($c), $out);
+                assert_eq!(cp.parse_normal_mode_command($c), $out);
             }
         };
     }
 
     //We want to keep theese as separate tests TK
-    parse_command_test_wrapper!(
-        parse_command_q,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_q,
         Character::Display('q'),
         Some(NormalModeCommand::Quit)
     );
-    parse_command_test_wrapper!(
-        parse_command_ctrl_c,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_ctrl_c,
         Character::Display('\u{3}'),
         Some(NormalModeCommand::Quit)
     );
-    parse_command_test_wrapper!(
-        parse_command_j,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_j,
         Character::Display('j'),
         Some(NormalModeCommand::MoveDown)
     );
-    parse_command_test_wrapper!(
-        parse_command_k,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_k,
         Character::Display('k'),
         Some(NormalModeCommand::MoveUp)
     );
-    parse_command_test_wrapper!(
-        parse_command_h,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_h,
         Character::Display('h'),
         Some(NormalModeCommand::MoveLeft)
     );
-    parse_command_test_wrapper!(
-        parse_command_l,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_l,
         Character::Display('l'),
         Some(NormalModeCommand::MoveRight)
     );
-    parse_command_test_wrapper!(
-        parse_command_capital_g,
+    parse_normal_command_test_wrapper!(
+        parse_normal_command_capital_g,
         Character::Display('G'),
         Some(NormalModeCommand::MoveToBottom)
     );
@@ -259,20 +259,20 @@ mod test {
     fn parse_command_nr() {
         let mut cp = CommandParser::new();
         assert_eq!(
-            cp.parse_command(Character::Display('0')),
+            cp.parse_normal_mode_command(Character::Display('0')),
             Some(NormalModeCommand::ToBeg)
         );
         for i in '1'..='9' {
-            assert_eq!(cp.parse_command(Character::Display(i)), None);
+            assert_eq!(cp.parse_normal_mode_command(Character::Display(i)), None);
         }
     }
 
     #[test]
     fn parse_command_gg() {
         let mut cp = CommandParser::new();
-        assert_eq!(cp.parse_command(Character::Display('g')), None);
+        assert_eq!(cp.parse_normal_mode_command(Character::Display('g')), None);
         assert_eq!(
-            cp.parse_command(Character::Display('g')),
+            cp.parse_normal_mode_command(Character::Display('g')),
             Some(NormalModeCommand::MoveToTop)
         );
         assert!(cp.command_buffer.is_empty());

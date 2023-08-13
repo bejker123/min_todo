@@ -333,7 +333,7 @@ impl MinTodo {
         if let Some(ch) = char_parser::parse_char(buffer) {
             match self.mode {
                 InputMode::Normal => {
-                    if let Some(command) = self.command_parser.parse_command(ch) {
+                    if let Some(command) = self.command_parser.parse_normal_mode_command(ch) {
                         return self.handle_normal_mode_command(command);
                     }
                 }
