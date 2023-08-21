@@ -1,5 +1,7 @@
 pub type Buffer = [u8; 4];
 
+use tokio::sync::Mutex;
+
 use crate::{
     char_parser,
     command_parser::{CommandParser, InsertModeCommand, NormalModeCommand},
@@ -8,6 +10,7 @@ use crate::{
 use std::{
     error::Error,
     io::{self, Read, Write},
+    sync::Arc,
 };
 
 #[derive(Debug)]
@@ -49,7 +52,7 @@ pub enum InputMode {
 }
 
 #[derive(Debug)]
-pub struct MinTodo {
+struct MinTodoData {
     content: Vec<Line>,
     cursor: Cursor,
     changed: bool,
@@ -63,24 +66,48 @@ pub struct MinTodo {
     bottom_line: Option<Line>,
 }
 
+#[derive(Debug)]
+pub struct MinTodo {
+    data: Arc<Mutex<MinTodoData>>,
+}
+
 impl MinTodo {
     pub fn new() -> Self {
         let term_columns = termion::terminal_size().unwrap().1 as usize;
         Self {
-            content: Vec::new(),
-            cursor: Cursor::default(),
-            changed: true,
-            scroll_beg: 0,
-            scroll_end: term_columns,
-            term_columns,
-            start_scroll_up: 5,
-            start_scroll_down: term_columns - 5,
-            command_parser: CommandParser::new(),
-            mode: InputMode::Normal,
-            bottom_line: None,
+            data: Arc::new(Mutex::new(MinTodoData {
+                content: Vec::new(),
+                cursor: Cursor::default(),
+                changed: true,
+                scroll_beg: 0,
+                scroll_end: term_columns,
+                term_columns,
+                start_scroll_up: 5,
+                start_scroll_down: term_columns - 5,
+                command_parser: CommandParser::new(),
+                mode: InputMode::Normal,
+                bottom_line: None,
+            })),
         }
     }
 
+    pub async fn update(&self) -> Result<bool, Box<dyn Error>> {
+        let mut data = self.data.lock().await;
+        MinTodoData::update(&mut data)
+    }
+
+    pub async fn render(&mut self) -> Result<(), Box<dyn Error>> {
+        let mut data = self.data.lock().await;
+        MinTodoData::render(&mut data)
+    }
+
+    pub async fn add_line(&mut self, line: Line) {
+        let mut data = self.data.lock().await;
+        MinTodoData::add_line(&mut data, line);
+    }
+}
+
+impl MinTodoData {
     pub fn add_line(&mut self, line: Line) {
         self.content.push(line);
         // self.scroll_end += 1;

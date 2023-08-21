@@ -9,18 +9,21 @@ use std::io::Write;
 use min_todo::{Line, MinTodo};
 use termion::raw::IntoRawMode;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     print!("{}", termion::screen::ToAlternateScreen);
     let stdout = std::io::stdout().into_raw_mode().unwrap();
     stdout.lock().flush().unwrap();
     let mut renderer = MinTodo::new();
     for i in 0..153 {
-        renderer.add_line(Line::from(i.to_string() + " Test Line "));
+        renderer
+            .add_line(Line::from(i.to_string() + " Test Line "))
+            .await;
     }
 
     loop {
-        renderer.render().unwrap();
-        if !renderer.update().unwrap() {
+        renderer.render().await.unwrap();
+        if !renderer.update().await.unwrap() {
             break;
         }
     }
